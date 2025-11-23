@@ -7,7 +7,7 @@ namespace TelegramAi.Infrastructure.Extensions;
 public static class MappingExtensions
 {
     public static UserDto ToDto(this User user) =>
-        new(user.Id, user.Email, user.DisplayName, user.SubscriptionStatus, user.SubscriptionExpiresAtUtc);
+        new(user.Id, user.Email, user.DisplayName, user.SubscriptionStatus, user.SubscriptionExpiresAtUtc, user.TelegramUserId);
 
     public static ChannelDto ToDto(this Channel channel) =>
         new(
@@ -16,6 +16,7 @@ public static class MappingExtensions
             channel.Description,
             channel.TelegramLink,
             channel.Category,
+            channel.AiDescription,
             channel.BotLink is { VerifiedAtUtc: not null },
             channel.BotLink?.ToDto(),
             channel.Posts.Select(ToDto).ToList());

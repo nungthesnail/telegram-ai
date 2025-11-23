@@ -54,7 +54,8 @@ public class DialogService : IDialogService
         return loaded ?? dialog.ToDto();
     }
 
-    public async Task<AssistantResponseDto> SendMessageAsync(Guid userId, AssistantMessageRequest request, CancellationToken cancellationToken)
+    public async Task<SendMessageResultDto> SendMessageAsync(Guid userId, AssistantMessageRequest request,
+        CancellationToken cancellationToken)
     {
         var dialog = await _dbContext.Dialogs
             .Include(x => x.Messages)
@@ -91,7 +92,7 @@ public class DialogService : IDialogService
         _dbContext.DialogMessages.Add(assistantMessage);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return assistant;
+        return new SendMessageResultDto(userMessage.ToDto(), assistantMessage.ToDto());
     }
 
     public async Task<IReadOnlyCollection<DialogDto>> ListByChannelAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
@@ -100,9 +101,37 @@ public class DialogService : IDialogService
             .AsNoTracking()
             .Where(x => x.UserId == userId && x.ChannelId == channelId)
             .Include(x => x.Messages)
+            .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
         return dialogs.Select(d => d.ToDto()).ToList();
+    }
+
+    public async Task<IReadOnlyCollection<DialogDto>> ListAllAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var dialogs = await _dbContext.Dialogs
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
+            .Include(x => x.Messages)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(cancellationToken);
+
+        return dialogs.Select(d => d.ToDto()).ToList();
+    }
+
+    public async Task<DialogDto?> GetAsync(Guid userId, Guid dialogId, CancellationToken cancellationToken)
+    {
+        return await LoadDialogAsync(dialogId, userId, cancellationToken);
+    }
+
+    public async Task DeleteAsync(Guid userId, Guid dialogId, CancellationToken cancellationToken)
+    {
+        var dialog = await _dbContext.Dialogs
+            .FirstOrDefaultAsync(x => x.Id == dialogId && x.UserId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Dialog not found");
+
+        _dbContext.Dialogs.Remove(dialog);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<DialogDto?> LoadDialogAsync(Guid dialogId, Guid userId, CancellationToken cancellationToken)

@@ -497,3 +497,4 @@ dist
 dist-ssr
 *.local
 /TelegramAi/src/TelegramAi.Infrastructure/Persistence/Migrations
+.env

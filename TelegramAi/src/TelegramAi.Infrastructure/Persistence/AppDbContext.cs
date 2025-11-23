@@ -10,6 +10,7 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserVerificationCode> UserVerificationCodes => Set<UserVerificationCode>();
     public DbSet<Channel> Channels => Set<Channel>();
     public DbSet<ChannelBotLink> ChannelBotLinks => Set<ChannelBotLink>();
     public DbSet<Dialog> Dialogs => Set<Dialog>();
@@ -26,13 +27,26 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => x.Email).IsUnique();
             entity.Property(x => x.Email).IsRequired().HasMaxLength(256);
             entity.Property(x => x.DisplayName).IsRequired().HasMaxLength(128);
+            entity.Property(x => x.PasswordHash).IsRequired().HasMaxLength(64);
+            entity.HasIndex(x => x.TelegramUserId).IsUnique();
+        });
+
+        modelBuilder.Entity<UserVerificationCode>(entity =>
+        {
+            entity.Property(x => x.VerificationCode).IsRequired().HasMaxLength(32);
+            entity.HasIndex(x => x.VerificationCode).IsUnique();
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Channel>(entity =>
         {
-            entity.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Title).HasMaxLength(200);
             entity.Property(x => x.Description).HasMaxLength(2000);
             entity.Property(x => x.TelegramLink).HasMaxLength(500);
+            entity.Property(x => x.AiDescription).HasMaxLength(2000);
 
             entity.HasOne(x => x.Owner)
                 .WithMany(x => x.Channels)

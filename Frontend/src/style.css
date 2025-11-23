@@ -228,6 +228,10 @@ button:not(:disabled):hover {
   font-weight: 600;
 }
 
+.banner-lbl {
+  color: #e0e7ff
+}
+
 @media (max-width: 768px) {
   .hero {
     flex-direction: column;

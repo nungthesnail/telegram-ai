@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
@@ -7,6 +8,7 @@ namespace TelegramAi.Api.Controllers;
 
 [ApiController]
 [Route("api/subscription")]
+[Authorize]
 public class SubscriptionController : ControllerBase
 {
     private readonly ISubscriptionService _subscriptionService;

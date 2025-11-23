@@ -3,12 +3,11 @@ namespace TelegramAi.Domain.Entities;
 public class Channel : BaseEntity
 {
     public Guid OwnerId { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string TelegramLink { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public string? TelegramLink { get; set; }
     public string? Category { get; set; }
-
-    public Guid? ActiveDialogId { get; set; }
+    public string? AiDescription { get; set; }
 
     public User Owner { get; set; } = null!;
     public ChannelBotLink? BotLink { get; set; }

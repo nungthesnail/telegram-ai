@@ -14,22 +14,20 @@ public class ChannelService : IChannelService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ChannelService> _logger;
+    private readonly ITelegramChannelInfoProvider _telegramChannelInfoProvider;
 
-    public ChannelService(AppDbContext dbContext, ILogger<ChannelService> logger)
+    public ChannelService(AppDbContext dbContext, ILogger<ChannelService> logger, ITelegramChannelInfoProvider telegramChannelInfoProvider)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _telegramChannelInfoProvider = telegramChannelInfoProvider;
     }
 
     public async Task<ChannelDto> CreateAsync(Guid userId, CreateChannelRequest request, CancellationToken cancellationToken)
     {
         var channel = new Channel
         {
-            OwnerId = userId,
-            Title = request.Title,
-            Description = request.Description,
-            TelegramLink = request.TelegramLink,
-            Category = request.Category
+            OwnerId = userId
         };
 
         _dbContext.Channels.Add(channel);
@@ -69,52 +67,142 @@ public class ChannelService : IChannelService
         return await LoadDtoAsync(channelId, userId, cancellationToken);
     }
 
-    public async Task<ChannelBotLinkDto> RequestBotLinkAsync(Guid userId, RequestBotLinkRequest request, CancellationToken cancellationToken)
+    public async Task<ChannelDto> UpdateAiDescriptionAsync(Guid userId, Guid channelId, string aiDescription, CancellationToken cancellationToken)
     {
-        var channel = await _dbContext.Channels
+        var channel = await _dbContext.Channels.FirstOrDefaultAsync(x => x.Id == channelId && x.OwnerId == userId, cancellationToken)
+                      ?? throw new InvalidOperationException("Channel not found");
+
+        channel.AiDescription = aiDescription;
+        channel.UpdatedAtUtc = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return await LoadDtoAsync(channel.Id, userId, cancellationToken) ?? channel.ToDto();
+    }
+
+    public async Task<ChannelDto> LinkChannelFromTelegramAsync(long telegramChatId, long telegramBotId, long? telegramUserId,
+        CancellationToken cancellationToken)
+    {
+        // Получаем информацию о канале из Telegram
+        var channelInfo = await _telegramChannelInfoProvider.GetChannelInfoAsync(telegramChatId, cancellationToken);
+
+        // Ищем пользователя по TelegramUserId, если он указан
+        User? user = null;
+        if (telegramUserId.HasValue)
+        {
+            user = await _dbContext.Users
+                .FirstOrDefaultAsync(x => x.TelegramUserId == telegramUserId.Value, cancellationToken);
+        }
+
+        // Проверяем, не существует ли уже канал с этим TelegramChatId
+        var existingChannel = await _dbContext.Channels
             .Include(x => x.BotLink)
-            .FirstOrDefaultAsync(x => x.Id == request.ChannelId && x.OwnerId == userId, cancellationToken)
-            ?? throw new InvalidOperationException("Channel not found");
+            .FirstOrDefaultAsync(x => x.BotLink != null && x.BotLink.TelegramChatId == telegramChatId, cancellationToken);
 
-        var verificationCode = GenerateVerificationCode();
+        Channel channel;
+        if (existingChannel != null)
+        {
+            channel = existingChannel;
+            // Обновляем информацию о канале из Telegram
+            channel.Title = channelInfo.Title;
+            channel.Description = channelInfo.Description;
+            channel.TelegramLink = channelInfo.Link ?? $"https://t.me/{channelInfo.Username}";
+        }
+        else
+        {
+            // Создаем новый канал
+            channel = new Channel
+            {
+                OwnerId = user?.Id ?? Guid.Empty, // Если пользователь найден, привязываем сразу
+                Title = channelInfo.Title,
+                Description = channelInfo.Description,
+                TelegramLink = channelInfo.Username != null ? $"https://t.me/{channelInfo.Username}" : null
+            };
+            _dbContext.Channels.Add(channel);
+        }
 
-        if (channel.BotLink is null)
+        // Создаем или обновляем связь с ботом
+        if (channel.BotLink == null)
         {
             channel.BotLink = new ChannelBotLink
             {
                 ChannelId = channel.Id,
-                VerificationCode = verificationCode
+                TelegramChatId = telegramChatId,
+                TelegramBotId = telegramBotId,
+                VerifiedAtUtc = user != null ? DateTime.UtcNow : null // Если пользователь найден, сразу подтверждаем
             };
+            _dbContext.Add(channel.BotLink);
         }
         else
         {
-            channel.BotLink.VerificationCode = verificationCode;
-            channel.BotLink.VerifiedAtUtc = null;
+            channel.BotLink.TelegramChatId = telegramChatId;
+            channel.BotLink.TelegramBotId = telegramBotId;
+            // Если пользователь найден и канал еще не подтвержден, подтверждаем
+            if (user != null && channel.BotLink.VerifiedAtUtc == null)
+            {
+                channel.BotLink.VerifiedAtUtc = DateTime.UtcNow;
+                if (channel.OwnerId == Guid.Empty)
+                {
+                    channel.OwnerId = user.Id;
+                }
+            }
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Generated verification code for channel {ChannelId}", channel.Id);
+        
+        if (user != null)
+        {
+            _logger.LogInformation("Channel {ChannelId} linked from Telegram chat {ChatId} for user {UserId}", channel.Id, telegramChatId, user.Id);
+        }
+        else
+        {
+            _logger.LogInformation("Channel {ChannelId} linked from Telegram chat {ChatId} (pending user confirmation)", channel.Id, telegramChatId);
+        }
 
-        return channel.BotLink.ToDto();
+        return channel.ToDto();
     }
 
-    public async Task<ChannelBotLinkDto> ConfirmBotLinkAsync(ConfirmBotLinkRequest request, CancellationToken cancellationToken)
+    public async Task<ChannelDto> ConfirmChannelLinkAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
     {
-        var link = await _dbContext.ChannelBotLinks
-            .Include(x => x.Channel)
-            .FirstOrDefaultAsync(x =>
-                x.ChannelId == request.ChannelId &&
-                x.VerificationCode == request.VerificationCode, cancellationToken)
-            ?? throw new InvalidOperationException("Verification data invalid");
+        var channel = await _dbContext.Channels
+            .Include(x => x.BotLink)
+            .FirstOrDefaultAsync(x => x.Id == channelId, cancellationToken)
+            ?? throw new InvalidOperationException("Channel not found");
 
-        link.TelegramBotId = request.TelegramBotId;
-        link.TelegramChatId = request.TelegramChatId;
-        link.VerifiedAtUtc = DateTime.UtcNow;
+        if (channel.BotLink == null || channel.BotLink.TelegramChatId == null)
+        {
+            throw new InvalidOperationException("Channel bot link not found");
+        }
+
+        // Устанавливаем владельца, если еще не установлен
+        if (channel.OwnerId == Guid.Empty)
+        {
+            channel.OwnerId = userId;
+        }
+        else if (channel.OwnerId != userId)
+        {
+            throw new InvalidOperationException("Channel already belongs to another user");
+        }
+
+        // Помечаем как подтвержденный
+        channel.BotLink.VerifiedAtUtc = DateTime.UtcNow;
+        channel.UpdatedAtUtc = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        _logger.LogInformation("Channel {ChannelId} verified via Telegram chat {ChatId}", request.ChannelId, request.TelegramChatId);
+        _logger.LogInformation("Channel {ChannelId} confirmed by user {UserId}", channelId, userId);
 
-        return link.ToDto();
+        return await LoadDtoAsync(channel.Id, userId, cancellationToken) ?? channel.ToDto();
+    }
+
+    public async Task DeleteAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
+    {
+        var channel = await _dbContext.Channels
+            .FirstOrDefaultAsync(x => x.Id == channelId && x.OwnerId == userId, cancellationToken)
+            ?? throw new InvalidOperationException("Channel not found");
+
+        _dbContext.Channels.Remove(channel);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        
+        _logger.LogInformation("Channel {ChannelId} deleted by user {UserId}", channelId, userId);
     }
 
     private async Task<ChannelDto?> LoadDtoAsync(Guid channelId, Guid ownerId, CancellationToken cancellationToken)

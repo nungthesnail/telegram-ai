@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using TelegramAi.Application.Interfaces;
 
-namespace TelegramAi.Infrastructure.Telegram;
+namespace TelegramAi.TelegramBot;
 
 public class StubTelegramPublisher : ITelegramPublisher
 {

@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  pgsql:
+    image: postgres:16-alpine
+    container_name: tgassistant-postgres
+    environment:
+      POSTGRES_USER: ${TGAI_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${TGAI_POSTGRES_PASSWORD}
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+    ports:
+      - "5432:5432"
+    volumes:
+      - C:/var/lib/postgresql/data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tgassistant-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./TelegramAi
+      dockerfile: src/TelegramAi.Api/Dockerfile
+    container_name: tgassistant-backend
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      pgsql:
+        condition: service_healthy
+    networks:
+      - tgassistant-network
+    restart: unless-stopped
+
+  # Frontend Vue App
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: tgassistant-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - tgassistant-network
+    restart: unless-stopped
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: tgassistant-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./Nginx/NginxTest/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - tgassistant-network
+    restart: unless-stopped
+
+networks:
+  tgassistant-network:
+    driver: bridge
+

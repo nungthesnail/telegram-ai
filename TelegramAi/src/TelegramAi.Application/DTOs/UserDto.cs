@@ -7,6 +7,7 @@ public record UserDto(
     string Email,
     string DisplayName,
     SubscriptionStatus SubscriptionStatus,
-    DateTime? SubscriptionExpiresAtUtc);
+    DateTime? SubscriptionExpiresAtUtc,
+    long? TelegramUserId);
 
 

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
@@ -7,6 +8,7 @@ namespace TelegramAi.Api.Controllers;
 
 [ApiController]
 [Route("api/channels")]
+[Authorize]
 public class ChannelsController : ControllerBase
 {
     private readonly IChannelService _channelService;
@@ -46,23 +48,25 @@ public class ChannelsController : ControllerBase
         return Ok(channel);
     }
 
-    [HttpPost("{channelId:guid}/bot/request")]
-    public async Task<ActionResult<ChannelBotLinkDto>> RequestBotLink(Guid channelId, CancellationToken cancellationToken)
+    [HttpPost("{channelId:guid}/confirm")]
+    public async Task<ActionResult<ChannelDto>> ConfirmChannelLink(Guid channelId, CancellationToken cancellationToken)
     {
-        var result = await _channelService.RequestBotLinkAsync(_userContext.GetCurrentUserId(), new RequestBotLinkRequest(channelId), cancellationToken);
-        return Ok(result);
+        var channel = await _channelService.ConfirmChannelLinkAsync(_userContext.GetCurrentUserId(), channelId, cancellationToken);
+        return Ok(channel);
     }
 
-    [HttpPost("{channelId:guid}/bot/confirm")]
-    public async Task<ActionResult<ChannelBotLinkDto>> ConfirmBotLink(Guid channelId, [FromBody] ConfirmBotLinkRequest request, CancellationToken cancellationToken)
+    [HttpPut("{channelId:guid}/ai-description")]
+    public async Task<ActionResult<ChannelDto>> UpdateAiDescription(Guid channelId, [FromBody] UpdateAiDescriptionRequest request, CancellationToken cancellationToken)
     {
-        if (channelId != request.ChannelId)
-        {
-            return BadRequest("Channel id mismatch");
-        }
+        var channel = await _channelService.UpdateAiDescriptionAsync(_userContext.GetCurrentUserId(), channelId, request.AiDescription, cancellationToken);
+        return Ok(channel);
+    }
 
-        var result = await _channelService.ConfirmBotLinkAsync(request, cancellationToken);
-        return Ok(result);
+    [HttpDelete("{channelId:guid}")]
+    public async Task<ActionResult> Delete(Guid channelId, CancellationToken cancellationToken)
+    {
+        await _channelService.DeleteAsync(_userContext.GetCurrentUserId(), channelId, cancellationToken);
+        return NoContent();
     }
 }
 

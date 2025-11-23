@@ -5,12 +5,14 @@ namespace TelegramAi.Infrastructure.LLM;
 
 public class StubLanguageModelClient : ILanguageModelClient
 {
-    public Task<AssistantResponseDto> GenerateResponseAsync(
+    public async Task<AssistantResponseDto> GenerateResponseAsync(
         Guid dialogId,
         IReadOnlyCollection<DialogMessageDto> history,
         string userMessage,
         CancellationToken cancellationToken)
     {
+        await Task.Delay(2000, cancellationToken);
+        
         var responseText =
             $"(stub) Получил сообщение: \"{userMessage}\". Предлагаю подготовить пост и план действий.";
 
@@ -26,7 +28,7 @@ public class StubLanguageModelClient : ILanguageModelClient
                 null)
         };
 
-        return Task.FromResult(new AssistantResponseDto(responseText, suggestedPosts, "/publish"));
+        return new AssistantResponseDto(responseText, suggestedPosts, "/publish");
     }
 }
 

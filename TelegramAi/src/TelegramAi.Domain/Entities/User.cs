@@ -6,8 +6,10 @@ public class User : BaseEntity
 {
     public string Email { get; set; } = null!;
     public string DisplayName { get; set; } = null!;
+    public string PasswordHash { get; set; } = null!;
     public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.Trial;
     public DateTime? SubscriptionExpiresAtUtc { get; set; }
+    public long? TelegramUserId { get; set; }
 
     public ICollection<Channel> Channels { get; set; } = new List<Channel>();
     public ICollection<Dialog> Dialogs { get; set; } = new List<Dialog>();

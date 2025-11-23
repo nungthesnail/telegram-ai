@@ -4,9 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -19,6 +21,12 @@
     <ProjectReference Include="..\TelegramAi.Application\TelegramAi.Application.csproj" />
     <ProjectReference Include="..\TelegramAi.Infrastructure\TelegramAi.Infrastructure.csproj" />
     <ProjectReference Include="..\TelegramAi.TelegramBot\TelegramAi.TelegramBot.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\.dockerignore">
+      <Link>.dockerignore</Link>
+    </Content>
   </ItemGroup>
 
 </Project>

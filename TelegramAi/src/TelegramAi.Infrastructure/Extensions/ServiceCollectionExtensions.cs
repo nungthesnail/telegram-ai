@@ -8,7 +8,6 @@ using TelegramAi.Infrastructure.Options;
 using TelegramAi.Infrastructure.Payments;
 using TelegramAi.Infrastructure.Persistence;
 using TelegramAi.Infrastructure.Services;
-using TelegramAi.Infrastructure.Telegram;
 
 namespace TelegramAi.Infrastructure.Extensions;
 
@@ -21,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.Configure<LlmOptions>(configuration.GetSection(LlmOptions.SectionName));
         services.Configure<TelegramOptions>(configuration.GetSection(TelegramOptions.SectionName));
         services.Configure<SubscriptionOptions>(configuration.GetSection(SubscriptionOptions.SectionName));
+        services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
 
         var connectionString = configuration.GetConnectionString("Default") ??
                                configuration.GetSection(DatabaseOptions.SectionName)["ConnectionString"];
@@ -39,7 +39,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddSingleton<IPaymentGateway, StubPaymentGateway>();
-        services.AddSingleton<ITelegramPublisher, StubTelegramPublisher>();
+        services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddLanguageModelProvider();
 
         return services;
