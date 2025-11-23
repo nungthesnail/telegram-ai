@@ -243,3 +243,9 @@ button:not(:disabled):hover {
     gap: 8px;
   }
 }
+
+p {
+  text-wrap: stable;
+  text-wrap-mode: wrap;
+  overflow-wrap: anywhere;
+}

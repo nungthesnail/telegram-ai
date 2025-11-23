@@ -68,7 +68,8 @@ builder.Services.Configure<JwtOptions>(options =>
     options.Audience = jwtOptions.Audience;
 });
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters

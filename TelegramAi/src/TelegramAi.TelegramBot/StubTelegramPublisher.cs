@@ -12,9 +12,9 @@ public class StubTelegramPublisher : ITelegramPublisher
         _logger = logger;
     }
 
-    public Task<string> PublishAsync(Guid channelId, string text, CancellationToken cancellationToken)
+    public Task<int> PublishAsync(Guid channelId, string text, CancellationToken cancellationToken)
     {
-        var messageId = $"msg_{DateTime.UtcNow.Ticks}";
+        var messageId = DateTime.UtcNow.GetHashCode();
         _logger.LogInformation("Simulated publishing post to channel {ChannelId}: {Text}", channelId, text);
         return Task.FromResult(messageId);
     }

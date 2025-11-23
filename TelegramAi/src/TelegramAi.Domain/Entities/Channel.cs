@@ -13,6 +13,5 @@ public class Channel : BaseEntity
     public ChannelBotLink? BotLink { get; set; }
     public ICollection<Dialog> Dialogs { get; set; } = new List<Dialog>();
     public ICollection<ChannelPost> Posts { get; set; } = new List<ChannelPost>();
+    public long? TelegramChatId { get; set; }
 }
-
-

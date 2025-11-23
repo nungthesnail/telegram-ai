@@ -9,5 +9,6 @@ public record TelegramChannelInfo(
     string Title,
     string? Description,
     string? Username,
-    string? Link);
+    string? Link,
+    long? TelegramChatId);
 

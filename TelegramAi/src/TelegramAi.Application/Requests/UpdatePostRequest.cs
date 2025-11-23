@@ -2,6 +2,7 @@ namespace TelegramAi.Application.Requests;
 
 public record UpdatePostRequest(
     string Title,
-    string Content);
+    string Content,
+    DateTime? ScheduledAtUtc);
 
 

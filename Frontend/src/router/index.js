@@ -26,6 +26,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/posts/:channelId',
+    name: 'Posts',
+    component: () => import('../views/PostsView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/dialog/:dialogId',
     name: 'Dialog',
     component: () => import('../views/DialogView.vue'),

@@ -25,7 +25,8 @@ public static class MappingExtensions
         new(link.Id, link.VerificationCode, link.TelegramChatId, link.TelegramBotId, link.VerifiedAtUtc);
 
     public static ChannelPostDto ToDto(this ChannelPost post) =>
-        new(post.Id, post.Title, post.Content, post.Status, post.CreatedAtUtc, post.ScheduledAtUtc, post.PublishedAtUtc);
+        new(post.Id, post.TelegramPostId, post.Channel.TelegramChatId,
+            post.Title, post.Content, post.Status, post.CreatedAtUtc, post.ScheduledAtUtc, post.PublishedAtUtc);
 
     public static DialogDto ToDto(this Dialog dialog) =>
         new(

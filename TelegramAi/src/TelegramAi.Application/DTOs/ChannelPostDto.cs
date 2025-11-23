@@ -4,7 +4,9 @@ namespace TelegramAi.Application.DTOs;
 
 public record ChannelPostDto(
     Guid Id,
-    string Title,
+    int? TelegramPostId,
+    long? TelegramChatId,
+    string? Title,
     string Content,
     ChannelPostStatus Status,
     DateTime CreatedAtUtc,

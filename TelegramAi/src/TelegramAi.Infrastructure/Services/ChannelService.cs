@@ -106,6 +106,7 @@ public class ChannelService : IChannelService
             channel.Title = channelInfo.Title;
             channel.Description = channelInfo.Description;
             channel.TelegramLink = channelInfo.Link ?? $"https://t.me/{channelInfo.Username}";
+            channel.TelegramChatId = channelInfo.TelegramChatId;
         }
         else
         {
@@ -115,7 +116,8 @@ public class ChannelService : IChannelService
                 OwnerId = user?.Id ?? Guid.Empty, // Если пользователь найден, привязываем сразу
                 Title = channelInfo.Title,
                 Description = channelInfo.Description,
-                TelegramLink = channelInfo.Username != null ? $"https://t.me/{channelInfo.Username}" : null
+                TelegramLink = channelInfo.Username != null ? $"https://t.me/{channelInfo.Username}" : null,
+                TelegramChatId = channelInfo.TelegramChatId
             };
             _dbContext.Channels.Add(channel);
         }

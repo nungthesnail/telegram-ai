@@ -47,6 +47,9 @@
             <button @click="createDialog(channel.id)" class="btn btn-primary" :disabled="isLoading">
               Новый диалог
             </button>
+            <button @click="gotoPosts(channel.id)" class="btn btn-primary">
+              Посты
+            </button>
           </div>
         </div>
       </div>
@@ -192,6 +195,10 @@ const createDialog = async (channelId) => {
   }
 }
 
+const gotoPosts = (channelId) => {
+  router.push({ name: 'Posts', params: { channelId: channelId } })
+}
+
 const getChannelName = (channelId) => {
   const channel = channels.value.find(c => c.id === channelId)
   return channel?.title || 'Неизвестный канал'
@@ -292,6 +299,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+
 .channels-page {
   padding: 2rem;
   max-width: 1200px;
@@ -360,6 +368,7 @@ onUnmounted(() => {
   text-decoration: none;
   display: inline-block;
   transition: background 0.2s;
+  margin: 0.1rem;
 }
 
 .btn-primary {

@@ -3,6 +3,7 @@ namespace TelegramAi.Application.Requests;
 public record CreatePostRequest(
     Guid ChannelId,
     string Title,
-    string Content);
+    string Content,
+    DateTime? ScheduledAtUtc);
 
 

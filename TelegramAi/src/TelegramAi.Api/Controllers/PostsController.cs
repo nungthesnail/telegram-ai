@@ -28,32 +28,37 @@ public class PostsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<ChannelPostDto>> Create([FromBody] CreatePostRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult> Create([FromBody] CreatePostRequest request, CancellationToken cancellationToken)
     {
-        var post = await _postService.CreateAsync(_userContext.GetCurrentUserId(), request, cancellationToken);
-        return Ok(post);
+        await _postService.CreateAsync(_userContext.GetCurrentUserId(), request, cancellationToken);
+        return Ok();
     }
 
     [HttpPut("{postId:guid}")]
     public async Task<ActionResult<ChannelPostDto>> Update(Guid postId, [FromBody] UpdatePostRequest request, CancellationToken cancellationToken)
     {
-        var post = await _postService.UpdateAsync(_userContext.GetCurrentUserId(), postId, request, cancellationToken);
-        return Ok(post);
+        await _postService.UpdateAsync(_userContext.GetCurrentUserId(), postId, request, cancellationToken);
+        return Ok();
     }
 
     [HttpPost("{postId:guid}/schedule")]
-    public async Task<ActionResult<ChannelPostDto>> Schedule(Guid postId, [FromBody] SchedulePostRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult> Schedule(Guid postId, [FromBody] SchedulePostRequest request, CancellationToken cancellationToken)
     {
-        var post = await _postService.ScheduleAsync(_userContext.GetCurrentUserId(), postId, request, cancellationToken);
-        return Ok(post);
+        await _postService.ScheduleAsync(_userContext.GetCurrentUserId(), postId, request, cancellationToken);
+        return Ok();
     }
 
     [HttpPost("{postId:guid}/publish")]
     public async Task<ActionResult<ChannelPostDto>> Publish(Guid postId, CancellationToken cancellationToken)
     {
-        var post = await _postService.PublishAsync(_userContext.GetCurrentUserId(), postId, cancellationToken);
-        return Ok(post);
+        await _postService.PublishAsync(_userContext.GetCurrentUserId(), postId, cancellationToken);
+        return Ok();
+    }
+    
+    [HttpDelete("{postId:guid}")]
+    public async Task<ActionResult<ChannelPostDto>> Delete(Guid postId, CancellationToken cancellationToken)
+    {
+        await _postService.DeleteAsync(_userContext.GetCurrentUserId(), postId, cancellationToken);
+        return Ok();
     }
 }
-
-

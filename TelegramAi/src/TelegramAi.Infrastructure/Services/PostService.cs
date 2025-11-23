@@ -20,7 +20,7 @@ public class PostService : IPostService
         _telegramPublisher = telegramPublisher;
     }
 
-    public async Task<ChannelPostDto> CreateAsync(Guid userId, CreatePostRequest request, CancellationToken cancellationToken)
+    public async Task CreateAsync(Guid userId, CreatePostRequest request, CancellationToken cancellationToken)
     {
         var channel = await EnsureChannelAsync(userId, request.ChannelId, cancellationToken);
 
@@ -28,27 +28,26 @@ public class PostService : IPostService
         {
             ChannelId = channel.Id,
             Title = request.Title,
-            Content = request.Content
+            Content = request.Content,
+            ScheduledAtUtc = request.ScheduledAtUtc
         };
 
         _dbContext.ChannelPosts.Add(post);
         await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return post.ToDto();
     }
 
-    public async Task<ChannelPostDto> UpdateAsync(Guid userId, Guid postId, UpdatePostRequest request, CancellationToken cancellationToken)
+    public async Task UpdateAsync(Guid userId, Guid postId, UpdatePostRequest request, CancellationToken cancellationToken)
     {
         var post = await LoadPostAsync(userId, postId, cancellationToken);
         post.Title = request.Title;
         post.Content = request.Content;
         post.UpdatedAtUtc = DateTime.UtcNow;
+        post.ScheduledAtUtc = request.ScheduledAtUtc;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return post.ToDto();
     }
 
-    public async Task<ChannelPostDto> ScheduleAsync(Guid userId, Guid postId, SchedulePostRequest request, CancellationToken cancellationToken)
+    public async Task ScheduleAsync(Guid userId, Guid postId, SchedulePostRequest request, CancellationToken cancellationToken)
     {
         var post = await LoadPostAsync(userId, postId, cancellationToken);
         post.ScheduledAtUtc = request.ScheduledAtUtc;
@@ -56,10 +55,9 @@ public class PostService : IPostService
         post.UpdatedAtUtc = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return post.ToDto();
     }
 
-    public async Task<ChannelPostDto> PublishAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
+    public async Task PublishAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
     {
         var post = await LoadPostAsync(userId, postId, cancellationToken);
         var channel = await EnsureChannelAsync(userId, post.ChannelId, cancellationToken);
@@ -69,11 +67,17 @@ public class PostService : IPostService
         post.Status = ChannelPostStatus.Published;
         post.PublishedAtUtc = DateTime.UtcNow;
         post.UpdatedAtUtc = DateTime.UtcNow;
-        post.ScheduledAtUtc = null;
-        post.ExternalMessageId = messageId;
+        post.TelegramPostId = messageId;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return post.ToDto();
+    }
+
+    public async Task DeleteAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
+    {
+        await _dbContext.ChannelPosts
+            .Include(x => x.Channel)
+            .Where(x => x.Id == postId && x.Channel.OwnerId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyCollection<ChannelPostDto>> ListByChannelAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
@@ -84,6 +88,7 @@ public class PostService : IPostService
             .AsNoTracking()
             .Where(x => x.ChannelId == channelId)
             .OrderByDescending(x => x.CreatedAtUtc)
+            .Include(x => x.Channel)
             .ToListAsync(cancellationToken);
 
         return posts.Select(p => p.ToDto()).ToList();

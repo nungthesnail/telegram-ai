@@ -30,7 +30,7 @@ public class TelegramChannelInfoProvider : ITelegramChannelInfoProvider
         var username = chat.Username;
         var link = chat.InviteLink;
 
-        return new TelegramChannelInfo(title, description, username, link);
+        return new TelegramChannelInfo(title, description, username, link, chatId);
     }
 }
 

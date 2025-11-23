@@ -20,6 +20,8 @@ public class StubLanguageModelClient : ILanguageModelClient
         {
             new(
                 Guid.NewGuid(),
+                null,
+                null,
                 "Идея поста",
                 $"Развиваем мысль: {userMessage}",
                 Domain.Enums.ChannelPostStatus.Draft,
