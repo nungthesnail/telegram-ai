@@ -41,7 +41,7 @@ public class PostService : IPostService
         var post = await LoadPostAsync(userId, postId, cancellationToken);
         post.Title = request.Title;
         post.Content = request.Content;
-        post.UpdatedAtUtc = DateTime.UtcNow;
+        post.UpdatedAtUtc = DateTimeOffset.UtcNow;
         post.ScheduledAtUtc = request.ScheduledAtUtc;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -52,7 +52,7 @@ public class PostService : IPostService
         var post = await LoadPostAsync(userId, postId, cancellationToken);
         post.ScheduledAtUtc = request.ScheduledAtUtc;
         post.Status = ChannelPostStatus.Scheduled;
-        post.UpdatedAtUtc = DateTime.UtcNow;
+        post.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
@@ -65,8 +65,8 @@ public class PostService : IPostService
         var messageId = await _telegramPublisher.PublishAsync(channel.Id, post.Content, cancellationToken);
 
         post.Status = ChannelPostStatus.Published;
-        post.PublishedAtUtc = DateTime.UtcNow;
-        post.UpdatedAtUtc = DateTime.UtcNow;
+        post.PublishedAtUtc = DateTimeOffset.UtcNow;
+        post.UpdatedAtUtc = DateTimeOffset.UtcNow;
         post.TelegramPostId = messageId;
 
         await _dbContext.SaveChangesAsync(cancellationToken);

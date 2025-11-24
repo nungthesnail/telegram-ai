@@ -48,13 +48,13 @@ public class SubscriptionService : ISubscriptionService
 
         payment.Status = status;
         payment.ExternalId = externalId;
-        payment.PaidAtUtc = status == PaymentStatus.Paid ? DateTime.UtcNow : null;
-        payment.UpdatedAtUtc = DateTime.UtcNow;
+        payment.PaidAtUtc = status == PaymentStatus.Paid ? DateTimeOffset.UtcNow : null;
+        payment.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         if (status == PaymentStatus.Paid)
         {
             user.SubscriptionStatus = SubscriptionStatus.Active;
-            user.SubscriptionExpiresAtUtc = DateTime.UtcNow.AddMonths(1);
+            user.SubscriptionExpiresAtUtc = DateTimeOffset.UtcNow.AddMonths(1);
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -66,7 +66,7 @@ public class SubscriptionService : ISubscriptionService
         var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken)
                    ?? throw new InvalidOperationException("User not found");
 
-        if (user.SubscriptionExpiresAtUtc is { } expires && expires < DateTime.UtcNow)
+        if (user.SubscriptionExpiresAtUtc is { } expires && expires < DateTimeOffset.UtcNow)
         {
             user.SubscriptionStatus = SubscriptionStatus.PastDue;
             await _dbContext.SaveChangesAsync(cancellationToken);

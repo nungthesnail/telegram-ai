@@ -14,7 +14,7 @@ public class StubTelegramPublisher : ITelegramPublisher
 
     public Task<int> PublishAsync(Guid channelId, string text, CancellationToken cancellationToken)
     {
-        var messageId = DateTime.UtcNow.GetHashCode();
+        var messageId = DateTimeOffset.UtcNow.GetHashCode();
         _logger.LogInformation("Simulated publishing post to channel {ChannelId}: {Text}", channelId, text);
         return Task.FromResult(messageId);
     }

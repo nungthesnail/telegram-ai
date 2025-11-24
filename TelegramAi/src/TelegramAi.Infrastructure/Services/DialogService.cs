@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
@@ -13,6 +14,7 @@ public class DialogService : IDialogService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILanguageModelClient _languageModelClient;
+    private readonly AssistantResponseParser _responseParser = new();
 
     public DialogService(AppDbContext dbContext, ILanguageModelClient languageModelClient)
     {
@@ -79,20 +81,22 @@ public class DialogService : IDialogService
             .ToListAsync(cancellationToken);
 
         var history = messages.Select(m => m.ToDto()).ToList();
-        var assistant = await _languageModelClient.GenerateResponseAsync(dialog.Id, history, request.Message, cancellationToken);
-
+        var assistantResponse = await _languageModelClient.GenerateResponseAsync(dialog.Id, history, request.Message, cancellationToken);
+        
+        var posts = _responseParser.Parse(assistantResponse);
+        
         var assistantMessage = new DialogMessage
         {
             DialogId = dialog.Id,
             Sender = DialogMessageSender.Assistant,
-            Content = assistant.AssistantMessage,
-            MetadataJson = assistant.ProposedCommand
+            Content = posts.Text,
+            MetadataJson = JsonSerializer.Serialize(posts.JsonPosts)
         };
 
         _dbContext.DialogMessages.Add(assistantMessage);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new SendMessageResultDto(userMessage.ToDto(), assistantMessage.ToDto());
+        return new SendMessageResultDto(userMessage.ToDto(), assistantMessage.ToDto(), posts.JsonPosts);
     }
 
     public async Task<IReadOnlyCollection<DialogDto>> ListByChannelAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using System.ClientModel;
 using System.Linq;
 using OpenAI;
 using OpenAI.Chat;
@@ -17,12 +18,15 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
     public OpenAiLanguageModelClient(IOptions<OpenAiOptions> options)
     {
         _options = options.Value;
-        var client = new OpenAIClient(_options.ApiKey);
+        var openApiOptions = new OpenAIClientOptions
+        {
+            Endpoint = new Uri(options.Value.ApiRoot)
+        };
+        var client = new OpenAIClient(new ApiKeyCredential(_options.ApiKey), openApiOptions);
         _chatClient = client.GetChatClient(_options.Model);
     }
 
-    public async Task<AssistantResponseDto> GenerateResponseAsync(
-        Guid dialogId,
+    public async Task<string> GenerateResponseAsync(Guid dialogId,
         IReadOnlyCollection<DialogMessageDto> history,
         string userMessage,
         CancellationToken cancellationToken)
@@ -45,7 +49,7 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
         var completion = response.Value;
         var content = completion.Content.FirstOrDefault()?.Text ?? "Извините, я не смог сгенерировать ответ.";
 
-        return new AssistantResponseDto(content, Array.Empty<ChannelPostDto>(), null);
+        return content;
     }
 }
 

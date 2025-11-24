@@ -10,7 +10,7 @@ public class Payment : BaseEntity
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
     public PaymentProvider Provider { get; set; } = PaymentProvider.Stub;
     public string? ExternalId { get; set; }
-    public DateTime? PaidAtUtc { get; set; }
+    public DateTimeOffset? PaidAtUtc { get; set; }
 
     public User User { get; set; } = null!;
 }

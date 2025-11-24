@@ -8,7 +8,7 @@ public class User : BaseEntity
     public string DisplayName { get; set; } = null!;
     public string PasswordHash { get; set; } = null!;
     public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.Trial;
-    public DateTime? SubscriptionExpiresAtUtc { get; set; }
+    public DateTimeOffset? SubscriptionExpiresAtUtc { get; set; }
     public long? TelegramUserId { get; set; }
 
     public ICollection<Channel> Channels { get; set; } = new List<Channel>();

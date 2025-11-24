@@ -8,8 +8,8 @@ public record PaymentDto(
     string Currency,
     PaymentStatus Status,
     PaymentProvider Provider,
-    DateTime CreatedAtUtc,
-    DateTime? PaidAtUtc,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? PaidAtUtc,
     string? ExternalId);
 
 

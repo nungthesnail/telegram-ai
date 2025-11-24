@@ -4,6 +4,6 @@ public record CreatePostRequest(
     Guid ChannelId,
     string Title,
     string Content,
-    DateTime? ScheduledAtUtc);
+    DateTimeOffset? ScheduledAtUtc);
 
 

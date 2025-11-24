@@ -496,5 +496,5 @@ node_modules
 dist
 dist-ssr
 *.local
-/TelegramAi/src/TelegramAi.Infrastructure/Persistence/Migrations
+/TelegramAi/src/TelegramAi.Infrastructure/Migrations
 .env

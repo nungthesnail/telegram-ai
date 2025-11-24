@@ -2,6 +2,7 @@
   import { ref, onMounted, onUnmounted, computed } from 'vue'
   import { useRoute } from 'vue-router'
   import { useAuthStore } from '../stores/auth'
+  import dayjs from 'dayjs';
   import PostEditModal from '../components/PostEditModal.vue'
 
   const route = useRoute()
@@ -103,6 +104,17 @@
     openMenuId.value = null
   }
 
+  const onPostEditClose = () => {
+    showEditPopup.value = false
+    editPost.value = null
+  }
+
+  const onPostEditSave = async () => {
+    onPostEditClose()
+    await loadChannel()
+    await loadPosts()
+  }
+
   onMounted(() => {
     loadChannel()
     loadPosts()
@@ -123,6 +135,8 @@
         <button @click="openEditPostPopup(null, false)" class="btn btn-primary">Новый пост</button>
       </div>
 
+      <i v-if="channel">Канал: {{ channel.title }}</i>
+
       <div v-if="draftsPosts.length > 0" class="posts-section">
         <h2>Черновики</h2>
         <div class="posts-grid">
@@ -131,7 +145,7 @@
               <div class="card-content">
                 <h3>{{ post.title || post.content.split(new RegExp('(\\n|\\.)'))[0] }}</h3>
                 <p>{{ post.content.slice(null, 20) + (post.content.length > 20 ? '...' : '')  }}</p>
-                <p v-if="post.scheduledAtUtc" class="text-secondary">Запланирован на: {{ post.scheduledAtUtc }} (UTC)</p>
+                <p v-if="post.scheduledAtUtc" class="text-secondary">Запланирован на: <br><b>{{ dayjs(post.scheduledAtUtc).format("YYYY.MM.DD HH:mm:ss") }}</b></p>
               </div>
               <div class="card-menu">
                 <button @click.stop="openPostMenu(post.id)" class="menu-button" :class="{ active: openMenuId === post.id }">
@@ -156,7 +170,7 @@
               <div class="card-content">
                 <h3>{{ post.title || post.content.split(new RegExp('(\\n|\\.)'))[0] }}</h3>
                 <p>{{ post.content.slice(null, 20) + (post.content.length > 20 ? '...' : '')  }}</p>
-                <p v-if="post.scheduledAtUtc" class="text-secondary">Запланирован на: {{ post.scheduledAtUtc }} (UTC)</p>
+                <p v-if="post.scheduledAtUtc" class="text-secondary">Запланирован на: <br><b>{{ dayjs(post.scheduledAtUtc).format("YYYY.MM.DD HH:mm:ss") }}</b></p>
               </div>
             </div>
           </div>
@@ -164,7 +178,7 @@
       </div>
 
       <div v-if="showEditPopup" class="modal">
-        <PostEditModal :post="editPost" :channel-id="channelId"></PostEditModal>
+        <PostEditModal :post="editPost" :channel-id="channelId" :close-callback="onPostEditClose" :save-callback="onPostEditSave"></PostEditModal>
       </div>
 
       <!-- Модальное окно подтверждения удаления поста -->
@@ -183,6 +197,18 @@
 </template>
 
 <style scoped>
+
+.btn-back {
+  display: inline-block;
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.btn-back:hover {
+  color: #5568d3;
+}
 
 .modal-content {
   background: white;

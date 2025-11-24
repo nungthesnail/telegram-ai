@@ -44,7 +44,7 @@ public class ChannelService : IChannelService
         channel.Description = request.Description;
         channel.TelegramLink = request.TelegramLink;
         channel.Category = request.Category;
-        channel.UpdatedAtUtc = DateTime.UtcNow;
+        channel.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return await LoadDtoAsync(channel.Id, userId, cancellationToken) ?? channel.ToDto();
@@ -73,7 +73,7 @@ public class ChannelService : IChannelService
                       ?? throw new InvalidOperationException("Channel not found");
 
         channel.AiDescription = aiDescription;
-        channel.UpdatedAtUtc = DateTime.UtcNow;
+        channel.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         return await LoadDtoAsync(channel.Id, userId, cancellationToken) ?? channel.ToDto();
@@ -130,7 +130,7 @@ public class ChannelService : IChannelService
                 ChannelId = channel.Id,
                 TelegramChatId = telegramChatId,
                 TelegramBotId = telegramBotId,
-                VerifiedAtUtc = user != null ? DateTime.UtcNow : null // Если пользователь найден, сразу подтверждаем
+                VerifiedAtUtc = user != null ? DateTimeOffset.UtcNow : null // Если пользователь найден, сразу подтверждаем
             };
             _dbContext.Add(channel.BotLink);
         }
@@ -141,7 +141,7 @@ public class ChannelService : IChannelService
             // Если пользователь найден и канал еще не подтвержден, подтверждаем
             if (user != null && channel.BotLink.VerifiedAtUtc == null)
             {
-                channel.BotLink.VerifiedAtUtc = DateTime.UtcNow;
+                channel.BotLink.VerifiedAtUtc = DateTimeOffset.UtcNow;
                 if (channel.OwnerId == Guid.Empty)
                 {
                     channel.OwnerId = user.Id;
@@ -186,8 +186,8 @@ public class ChannelService : IChannelService
         }
 
         // Помечаем как подтвержденный
-        channel.BotLink.VerifiedAtUtc = DateTime.UtcNow;
-        channel.UpdatedAtUtc = DateTime.UtcNow;
+        channel.BotLink.VerifiedAtUtc = DateTimeOffset.UtcNow;
+        channel.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("Channel {ChannelId} confirmed by user {UserId}", channelId, userId);

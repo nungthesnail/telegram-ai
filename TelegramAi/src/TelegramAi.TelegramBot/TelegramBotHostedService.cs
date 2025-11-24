@@ -133,7 +133,7 @@ public class TelegramBotHostedService : BackgroundService
                 .FirstOrDefaultAsync(x =>
                     x.VerificationCode == verificationCode &&
                     x.VerifiedAtUtc == null &&
-                    x.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
+                    x.ExpiresAtUtc > DateTimeOffset.UtcNow, cancellationToken);
 
             if (codeEntity == null)
             {

@@ -3,8 +3,8 @@ namespace TelegramAi.Domain.Entities;
 public abstract class BaseEntity
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAtUtc { get; set; }
+    public DateTimeOffset CreatedAtUtc { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? UpdatedAtUtc { get; set; }
 }
 
 

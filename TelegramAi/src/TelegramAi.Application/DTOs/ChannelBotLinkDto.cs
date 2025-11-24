@@ -5,6 +5,6 @@ public record ChannelBotLinkDto(
     string VerificationCode,
     long? TelegramChatId,
     long? TelegramBotId,
-    DateTime? VerifiedAtUtc);
+    DateTimeOffset? VerifiedAtUtc);
 
 

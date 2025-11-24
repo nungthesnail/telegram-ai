@@ -40,7 +40,7 @@ public class UserService : IUserService
             DisplayName = displayName,
             PasswordHash = passwordHash,
             SubscriptionStatus = SubscriptionStatus.Trial,
-            SubscriptionExpiresAtUtc = DateTime.UtcNow.AddDays(7)
+            SubscriptionExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7)
         };
 
         _dbContext.Users.Add(user);
@@ -82,7 +82,7 @@ public class UserService : IUserService
 
         // Удаляем старые неиспользованные коды
         var expiredCodes = await _dbContext.UserVerificationCodes
-            .Where(x => x.UserId == userId && (x.VerifiedAtUtc == null && x.ExpiresAtUtc < DateTime.UtcNow))
+            .Where(x => x.UserId == userId && (x.VerifiedAtUtc == null && x.ExpiresAtUtc < DateTimeOffset.UtcNow))
             .ToListAsync(cancellationToken);
         _dbContext.UserVerificationCodes.RemoveRange(expiredCodes);
 
@@ -91,7 +91,7 @@ public class UserService : IUserService
         {
             UserId = userId,
             VerificationCode = verificationCode,
-            ExpiresAtUtc = DateTime.UtcNow.AddHours(1)
+            ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1)
         };
 
         _dbContext.UserVerificationCodes.Add(codeEntity);
@@ -109,7 +109,7 @@ public class UserService : IUserService
                 x.UserId == userId &&
                 x.VerificationCode == verificationCode &&
                 x.VerifiedAtUtc == null &&
-                x.ExpiresAtUtc > DateTime.UtcNow, cancellationToken)
+                x.ExpiresAtUtc > DateTimeOffset.UtcNow, cancellationToken)
             ?? throw new InvalidOperationException("Verification code invalid or expired");
 
         // Проверяем, не используется ли уже этот TelegramUserId другим пользователем
@@ -121,8 +121,8 @@ public class UserService : IUserService
         }
 
         codeEntity.User.TelegramUserId = telegramUserId;
-        codeEntity.VerifiedAtUtc = DateTime.UtcNow;
-        codeEntity.User.UpdatedAtUtc = DateTime.UtcNow;
+        codeEntity.VerifiedAtUtc = DateTimeOffset.UtcNow;
+        codeEntity.User.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("User {UserId} verified Telegram account {TelegramUserId}", userId, telegramUserId);

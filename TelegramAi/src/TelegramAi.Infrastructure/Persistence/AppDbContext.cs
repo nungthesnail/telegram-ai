@@ -1,14 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using TelegramAi.Domain.Entities;
+using TelegramAi.Infrastructure.Persistence.Converters;
 
 namespace TelegramAi.Infrastructure.Persistence;
 
-public class AppDbContext : DbContext
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-    {
-    }
-
     public DbSet<User> Users => Set<User>();
     public DbSet<UserVerificationCode> UserVerificationCodes => Set<UserVerificationCode>();
     public DbSet<Channel> Channels => Set<Channel>();
@@ -106,6 +103,10 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        configurationBuilder
+            .Properties<DateTimeOffset>()
+            .HaveConversion<DateTimeOffsetConverter>();
+    }
 }
-
-

@@ -9,8 +9,8 @@ public record ChannelPostDto(
     string? Title,
     string Content,
     ChannelPostStatus Status,
-    DateTime CreatedAtUtc,
-    DateTime? ScheduledAtUtc,
-    DateTime? PublishedAtUtc);
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? ScheduledAtUtc,
+    DateTimeOffset? PublishedAtUtc);
 
 

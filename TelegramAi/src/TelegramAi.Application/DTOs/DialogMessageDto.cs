@@ -6,7 +6,7 @@ public record DialogMessageDto(
     Guid Id,
     DialogMessageSender Sender,
     string Content,
-    DateTime CreatedAtUtc,
+    DateTimeOffset CreatedAtUtc,
     string? MetadataJson);
 
 
