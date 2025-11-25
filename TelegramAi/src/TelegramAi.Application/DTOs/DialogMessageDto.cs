@@ -7,6 +7,5 @@ public record DialogMessageDto(
     DialogMessageSender Sender,
     string Content,
     DateTimeOffset CreatedAtUtc,
-    string? MetadataJson);
-
-
+    List<ChannelPostDto>? SuggestedPosts = null);
+    

@@ -16,11 +16,15 @@
   const posts = ref([])
 
   const draftsPosts = computed(() => {
-    return posts.value.filter(x => x.status === 0)
+    return posts.value.filter(x => x.status === 0).sort((a, b) => new Date(a.createdAtUtc) > new Date(b.createdAtUtc)
+      ? 1
+      : a.createdAtUtc == b.createdAtUtc ? 0 : -1)
   })
 
   const publishedPosts = computed(() => {
-    return posts.value.filter(x => x.status !== 0)
+    return posts.value.filter(x => x.status !== 0).sort((a, b) => new Date(a.publishedAtUtc) > new Date(b.publishedAtUtc)
+      ? 1
+      : a.publishedAtUtc == b.publishedAtUtc ? 0 : -1)
   })
 
   const loadChannel = async () => {

@@ -21,7 +21,8 @@ public enum ChannelPostStatus
     Draft = 0,
     Scheduled = 1,
     Published = 2,
-    Failed = 3
+    Failed = 3,
+    Suggested = 4
 }
 
 public enum PaymentStatus

@@ -2,5 +2,4 @@
 
 public record SendMessageResultDto(
     DialogMessageDto UserMessage,
-    DialogMessageDto? AssistantResponse,
-    List<ChannelPostDto>? SuggestedPosts);
+    DialogMessageDto? AssistantResponse);

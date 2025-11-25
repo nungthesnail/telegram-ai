@@ -1,4 +1,5 @@
 <script setup>
+
 import { ref } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -11,7 +12,7 @@ const { post, channelId, closeCallback, saveCallback } = defineProps({
 
 const authStore = useAuthStore()
 
-const postId = post?.id
+const postId = post?.id === '00000000-0000-0000-0000-000000000000' ? null : post?.id
 const content = ref(post?.content ?? '')
 const title = ref(post?.title ?? content.value?.split(new RegExp('(\\n|\\.)'))[0] ?? '')
 const scheduledAtUtc = ref(post?.scheduledAtUtc ?? '')
@@ -46,6 +47,7 @@ const handleSave = async () => {
     console.error('Failed to save post', err)
   }
 }
+
 </script>
 
 <template>
@@ -62,17 +64,38 @@ const handleSave = async () => {
           <label>Текст поста</label>
           <textarea v-model="content" rows="20" required placeholder="Главные новости на сегодня..."></textarea>
         </div>
+        <div class="form-group-checkbox">
+          <label for="doSchedule">
+            Запланировать: 
+            <input type="checkbox" id="doSchedule" v-model="scheduleChecked" />
+          </label>
+        </div>
         <div class="form-group">
-          <label><input type="checkbox" id="doSchedule" v-model="scheduleChecked" /> Запланировать</label>
-        </div>
-        <div v-if="scheduleChecked" class="form-group">
           <label>Время публикации</label>
-          <input v-model="scheduledAtUtc" type="datetime-local" required />
+          <input v-model="scheduledAtUtc" type="datetime-local" :disabled="!scheduleChecked" required />
         </div>
-        <button type="submit" class="btn btn-primary">Сохранить</button>
+        <button type="submit" class="btn btn-primary">Сохранить {{ postId ? '' : 'как черновик' }}</button>
         <button type="button" class="btn btn-secondary" @click="closeCallback">Отменить</button>
         <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       </form>
     </div>
   </div>
 </template>
+
+<style scoped>
+
+input[type="checkbox"] {
+  vertical-align: -2px;
+}
+
+.form-group-checkbox {
+  margin-bottom: 1.5rem;
+}
+
+.form-group-checkbox label {
+  margin-bottom: 0.5rem;
+  color: #666;
+  font-weight: 500;
+}
+
+</style>

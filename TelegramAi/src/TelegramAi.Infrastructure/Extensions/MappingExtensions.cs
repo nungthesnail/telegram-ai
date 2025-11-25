@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.Json;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Domain.Entities;
 
@@ -38,7 +39,12 @@ public static class MappingExtensions
             dialog.Messages.Select(ToDto).OrderBy(m => m.CreatedAtUtc).ToList());
 
     public static DialogMessageDto ToDto(this DialogMessage message) =>
-        new(message.Id, message.Sender, message.Content, message.CreatedAtUtc, message.MetadataJson);
+        new(
+            message.Id,
+            message.Sender,
+            message.Content,
+            message.CreatedAtUtc,
+            message.PostsJson is not null ? JsonSerializer.Deserialize<List<ChannelPostDto>>(message.PostsJson) : null);
 
     public static PaymentDto ToDto(this Payment payment) =>
         new(payment.Id, payment.Amount, payment.Currency, payment.Status, payment.Provider, payment.CreatedAtUtc, payment.PaidAtUtc, payment.ExternalId);

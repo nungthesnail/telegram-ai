@@ -29,7 +29,9 @@ public class StubLanguageModelClient : ILanguageModelClient
                 null)
         };
 
-        return $"Создаю пост с предоставленным текстом. /publish {{ \"Title\": \"Тестовый пост\", \"Content\": \"{responseText.Replace("\"", "\\\"")}\"}}";
+        return $"Создаю пост с предоставленным текстом. " +
+               $"/publish {{ \"Title\": \"Тестовый пост 1\", \"Content\": \"{responseText.Replace("\"", "\\\"")}\"}}" +
+               $"/publish {{ \"Title\": \"Второй тестовый пост\", \"Content\": \"{responseText.Replace("\"", "\\\"")}\"}}";
     }
 }
 

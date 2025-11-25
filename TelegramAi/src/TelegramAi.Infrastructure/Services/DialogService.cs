@@ -83,20 +83,25 @@ public class DialogService : IDialogService
         var history = messages.Select(m => m.ToDto()).ToList();
         var assistantResponse = await _languageModelClient.GenerateResponseAsync(dialog.Id, history, request.Message, cancellationToken);
         
-        var posts = _responseParser.Parse(assistantResponse);
+        var parsingResult = _responseParser.Parse(assistantResponse);
         
         var assistantMessage = new DialogMessage
         {
             DialogId = dialog.Id,
             Sender = DialogMessageSender.Assistant,
-            Content = posts.Text,
-            MetadataJson = JsonSerializer.Serialize(posts.JsonPosts)
+            Content = parsingResult.Text,
+            PostsJson = parsingResult.JsonPosts.Count > 0 ? JsonSerializer.Serialize(parsingResult.JsonPosts) : null
         };
 
         _dbContext.DialogMessages.Add(assistantMessage);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return new SendMessageResultDto(userMessage.ToDto(), assistantMessage.ToDto(), posts.JsonPosts);
+        return new SendMessageResultDto(
+            userMessage.ToDto(),
+            assistantMessage.ToDto() with
+            {
+                SuggestedPosts = parsingResult.JsonPosts.Select(x => x with { Status = ChannelPostStatus.Suggested }).ToList()
+            });
     }
 
     public async Task<IReadOnlyCollection<DialogDto>> ListByChannelAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
