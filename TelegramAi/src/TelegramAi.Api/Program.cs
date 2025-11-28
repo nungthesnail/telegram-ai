@@ -1,8 +1,10 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Telegram.Bot;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Infrastructure.Extensions;
 using TelegramAi.Infrastructure.Options;
@@ -45,7 +47,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 
 builder.Services
-    .AddSingleton<ITelegramPublisher, StubTelegramPublisher>()
+    .AddSingleton<ITelegramPublisher, TelegramPublisher>()
     .AddSingleton<ITelegramChannelInfoProvider, TelegramChannelInfoProvider>();
 
 // Configure JWT Authentication
@@ -89,6 +91,11 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<IUserContext, JwtUserContext>();
 builder.Services.AddHostedService<TelegramBotHostedService>();
+builder.Services.AddSingleton(sp =>
+{
+    var tgOptions = sp.GetRequiredService<IOptionsMonitor<TelegramOptions>>();
+    return new TelegramBotClient(tgOptions.CurrentValue.BotToken);
+});
 
 var app = builder.Build();
 

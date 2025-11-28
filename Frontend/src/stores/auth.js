@@ -42,6 +42,14 @@ export function useAuthStore() {
         logout()
         throw new Error('Unauthorized')
       }
+      if (response.status === 402) {
+        // Payment Required - redirect to subscription page
+        if (typeof window !== 'undefined' && window.location.pathname !== '/subscription') {
+          // Используем window.location для перенаправления, так как router недоступен в store
+          window.location.href = '/subscription'
+        }
+        throw new Error('Subscription required')
+      }
       const text = await response.text()
       throw new Error(text || 'Request failed')
     }

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using TelegramAi.Application.Interfaces;
+using TelegramAi.Domain.Entities;
 
 namespace TelegramAi.TelegramBot;
 
@@ -24,6 +25,10 @@ public class StubTelegramPublisher : ITelegramPublisher
         _logger.LogInformation("Simulated channel profile update for {ChannelId}. Title: {Title}", channelId, title);
         return Task.CompletedTask;
     }
+
+    public Task SendInvoiceAsync(long userId, SubscriptionPlan plan, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Simulated user sending invoice");
+        return Task.CompletedTask;
+    }
 }
-
-

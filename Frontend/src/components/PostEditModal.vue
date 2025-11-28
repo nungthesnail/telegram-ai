@@ -83,19 +83,5 @@ const handleSave = async () => {
 </template>
 
 <style scoped>
-
-input[type="checkbox"] {
-  vertical-align: -2px;
-}
-
-.form-group-checkbox {
-  margin-bottom: 1.5rem;
-}
-
-.form-group-checkbox label {
-  margin-bottom: 0.5rem;
-  color: #666;
-  font-weight: 500;
-}
-
+/* Все стили перенесены в style.css */
 </style>

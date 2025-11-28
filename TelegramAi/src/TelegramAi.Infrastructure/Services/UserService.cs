@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Domain.Entities;
-using TelegramAi.Domain.Enums;
 using TelegramAi.Infrastructure.Extensions;
 using TelegramAi.Infrastructure.Persistence;
 
@@ -38,9 +37,7 @@ public class UserService : IUserService
         {
             Email = normalizedEmail,
             DisplayName = displayName,
-            PasswordHash = passwordHash,
-            SubscriptionStatus = SubscriptionStatus.Trial,
-            SubscriptionExpiresAtUtc = DateTimeOffset.UtcNow.AddDays(7)
+            PasswordHash = passwordHash
         };
 
         _dbContext.Users.Add(user);
@@ -71,7 +68,11 @@ public class UserService : IUserService
 
     public async Task<UserDto?> GetAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var user = await _dbContext.Users.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .Include(x => x.Subscription)
+                .ThenInclude(x => x.Plan)
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         return user?.ToDto();
     }
 

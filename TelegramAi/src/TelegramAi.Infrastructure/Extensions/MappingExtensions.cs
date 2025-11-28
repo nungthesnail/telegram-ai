@@ -8,7 +8,14 @@ namespace TelegramAi.Infrastructure.Extensions;
 public static class MappingExtensions
 {
     public static UserDto ToDto(this User user) =>
-        new(user.Id, user.Email, user.DisplayName, user.SubscriptionStatus, user.SubscriptionExpiresAtUtc, user.TelegramUserId);
+        new(user.Id, user.Email, user.DisplayName, user.TelegramUserId, user.Subscription?.ToDto());
+
+    public static SubscriptionPlanDto ToDto(this SubscriptionPlan plan) =>
+        new(plan.Id, plan.Name, plan.Description, plan.PriceRub, plan.TokensPerPeriod, plan.PeriodDays);
+
+    public static UserSubscriptionDto ToDto(this UserSubscription subscription) =>
+        new(subscription.Id, subscription.UserId, subscription.PlanId, subscription.LastRenewedAtUtc, 
+            subscription.ExpiresAtUtc, subscription.Plan.ToDto());
 
     public static ChannelDto ToDto(this Channel channel) =>
         new(

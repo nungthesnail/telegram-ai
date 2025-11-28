@@ -40,50 +40,6 @@ const generateCode = async () => {
 </script>
 
 <style scoped>
-.settings-page {
-  padding: 2rem;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.settings-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  margin-bottom: 2rem;
-}
-
-.settings-card h2 {
-  margin-bottom: 1rem;
-}
-
-.code-block {
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 0.25rem;
-  margin: 1rem 0;
-}
-
-.code-block code {
-  background: #e0e0e0;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  font-family: monospace;
-}
-
-.success {
-  color: #27ae60;
-  font-weight: 500;
-}
-
-.btn {
-  padding: 0.75rem 1.5rem;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 0.25rem;
-  cursor: pointer;
-}
+/* Все стили перенесены в style.css */
 </style>
 

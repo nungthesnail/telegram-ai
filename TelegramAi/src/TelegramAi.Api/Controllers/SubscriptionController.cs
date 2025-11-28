@@ -20,6 +20,20 @@ public class SubscriptionController : ControllerBase
         _userContext = userContext;
     }
 
+    [HttpGet("plans")]
+    public async Task<ActionResult<IEnumerable<SubscriptionPlanDto>>> GetPlans(CancellationToken cancellationToken)
+    {
+        var plans = await _subscriptionService.GetPlansAsync(cancellationToken);
+        return Ok(plans);
+    }
+
+    [HttpGet("current")]
+    public async Task<ActionResult<UserSubscriptionDto>> GetCurrent(CancellationToken cancellationToken)
+    {
+        var subscription = await _subscriptionService.GetUserSubscriptionAsync(_userContext.GetCurrentUserId(), cancellationToken);
+        return subscription is null ? NotFound() : Ok(subscription);
+    }
+
     [HttpPost("start")]
     public async Task<ActionResult<PaymentDto>> Start([FromBody] StartSubscriptionRequest request, CancellationToken cancellationToken)
     {
@@ -27,11 +41,11 @@ public class SubscriptionController : ControllerBase
         return Ok(payment);
     }
 
-    [HttpGet("state")]
-    public async Task<ActionResult<UserDto>> GetState(CancellationToken cancellationToken)
+    [HttpPost("request-telegram-invoice")]
+    public async Task<ActionResult> RequestTelegramInvoice([FromBody] RequestTelegramInvoiceRequest request, CancellationToken cancellationToken)
     {
-        var state = await _subscriptionService.RefreshSubscriptionStateAsync(_userContext.GetCurrentUserId(), cancellationToken);
-        return Ok(state);
+        await _subscriptionService.RequestTelegramInvoiceAsync(_userContext.GetCurrentUserId(), request.PlanId, cancellationToken);
+        return Ok(new { message = "Invoice sent to Telegram" });
     }
 }
 

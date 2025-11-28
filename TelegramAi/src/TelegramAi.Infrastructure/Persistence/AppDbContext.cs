@@ -14,6 +14,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DialogMessage> DialogMessages => Set<DialogMessage>();
     public DbSet<ChannelPost> ChannelPosts => Set<ChannelPost>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+    public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -26,6 +28,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(x => x.DisplayName).IsRequired().HasMaxLength(128);
             entity.Property(x => x.PasswordHash).IsRequired().HasMaxLength(64);
             entity.HasIndex(x => x.TelegramUserId).IsUnique();
+            
+            entity.HasOne(x => x.Subscription)
+                .WithOne(x => x.User)
+                .HasForeignKey<UserSubscription>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UserVerificationCode>(entity =>
@@ -101,6 +108,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(x => x.Payments)
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SubscriptionPlan>(entity =>
+        {
+            entity.Property(x => x.Name).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.Description).HasMaxLength(2000);
+            entity.Property(x => x.PriceRub).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<UserSubscription>(entity =>
+        {
+            entity.HasIndex(x => x.UserId).IsUnique();
+            entity.HasOne(x => x.Plan)
+                .WithMany(x => x.UserSubscriptions)
+                .HasForeignKey(x => x.PlanId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

@@ -2,75 +2,67 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using TelegramAi.Application.Interfaces;
-using TelegramAi.Infrastructure.Options;
 using TelegramAi.Infrastructure.Persistence;
 
 namespace TelegramAi.TelegramBot;
 
-public class TelegramBotHostedService : BackgroundService
+public class TelegramBotHostedService(
+    ILogger<TelegramBotHostedService> logger,
+    IServiceScopeFactory scopeFactory,
+    TelegramBotClient botClient)
+    : BackgroundService
 {
-    private readonly ILogger<TelegramBotHostedService> _logger;
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IOptionsMonitor<TelegramOptions> _options;
-    private ITelegramBotClient? _botClient;
-
-    public TelegramBotHostedService(
-        ILogger<TelegramBotHostedService> logger,
-        IServiceScopeFactory scopeFactory,
-        IOptionsMonitor<TelegramOptions> options)
-    {
-        _logger = logger;
-        _scopeFactory = scopeFactory;
-        _options = options;
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var token = _options.CurrentValue.BotToken;
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            _logger.LogWarning("Telegram bot token is missing. Hosted service will be skipped.");
-            return;
-        }
-
-        _botClient = new TelegramBotClient(token);
-
         var receiverOptions = new ReceiverOptions
         {
             AllowedUpdates = Enum.GetValues<UpdateType>()
         };
 
-        _botClient.StartReceiving(
+        botClient.StartReceiving(
             HandleUpdateAsync,
             HandleErrorAsync,
             receiverOptions,
             cancellationToken: stoppingToken);
 
-        _logger.LogInformation("Telegram bot started polling");
+        logger.LogInformation("Telegram bot started polling");
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
     }
 
-    private Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
+    private Task HandleErrorAsync(ITelegramBotClient bot, Exception exception, CancellationToken cancellationToken)
     {
-        _logger.LogError(exception, "Telegram bot error");
+        logger.LogError(exception, "Telegram bot error");
         return Task.CompletedTask;
     }
 
-    private async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+    private async Task HandleUpdateAsync(ITelegramBotClient bot, Update update, CancellationToken cancellationToken)
     {
+        // Обработка PreCheckout Query
+        if (update.PreCheckoutQuery is { } preCheckoutQuery)
+        {
+            await bot.AnswerPreCheckoutQuery(preCheckoutQuery.Id, null, cancellationToken);
+            return;
+        }
+        
+        // Обработка SuccessfulPayment
+        if (update.Message?.SuccessfulPayment is { } successfulPayment)
+        {
+            await HandleSuccessfulPaymentAsync(bot, update.Message.From!.Id, successfulPayment, cancellationToken);
+            return;
+        }
+
         // Обработка добавления бота в канал
         if (update.MyChatMember is { Chat: { Type: ChatType.Channel } chat, NewChatMember.Status: ChatMemberStatus.Member or ChatMemberStatus.Administrator })
         {
             var userId = update.MyChatMember.From.Id;
             await HandleBotAddedToChannelAsync(
-                botClient, chat.Id, botClient.BotId, userId, cancellationToken);
+                bot, chat.Id, bot.BotId, userId, cancellationToken);
             return;
         }
 
@@ -85,35 +77,35 @@ public class TelegramBotHostedService : BackgroundService
 
         if (text.StartsWith("/verify", StringComparison.OrdinalIgnoreCase))
         {
-            await HandleVerifyCommandAsync(botClient, chatId, telegramUserId, text, cancellationToken);
+            await HandleVerifyCommandAsync(bot, chatId, telegramUserId, text, cancellationToken);
         }
     }
 
-    private async Task HandleBotAddedToChannelAsync(ITelegramBotClient botClient, long chatId, long botId, long telegramUserId,
+    private async Task HandleBotAddedToChannelAsync(ITelegramBotClient bot, long chatId, long botId, long telegramUserId,
         CancellationToken cancellationToken)
     {
-        using var scope = _scopeFactory.CreateScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
         var channelService = scope.ServiceProvider.GetRequiredService<IChannelService>();
 
         try
         {
             var channel = await channelService.LinkChannelFromTelegramAsync(chatId, botId, telegramUserId, cancellationToken);
-            await botClient.SendMessage(telegramUserId, $"Бот успешно добавлен в канал {channel.Title}",
+            await bot.SendMessage(telegramUserId, $"Бот успешно добавлен в канал {channel.Title}",
                 cancellationToken: cancellationToken);
-            _logger.LogInformation("Bot added to channel {ChatId}, channel {ChannelId} created (pending user confirmation)", chatId, channel.Id);
+            logger.LogInformation("Bot added to channel {ChatId}, channel {ChannelId} created (pending user confirmation)", chatId, channel.Id);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to link channel from Telegram chat {ChatId}", chatId);
+            logger.LogError(ex, "Failed to link channel from Telegram chat {ChatId}", chatId);
         }
     }
 
-    private async Task HandleVerifyCommandAsync(ITelegramBotClient botClient, ChatId chatId, long telegramUserId, string text, CancellationToken cancellationToken)
+    private async Task HandleVerifyCommandAsync(ITelegramBotClient bot, ChatId chatId, long telegramUserId, string text, CancellationToken cancellationToken)
     {
         var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length < 2)
         {
-            await botClient.SendMessage(chatId,
+            await bot.SendMessage(chatId,
                 "Используйте /verify <code>\n\nПолучите код в веб-интерфейсе и отправьте его здесь для подтверждения вашего аккаунта.",
                 cancellationToken: cancellationToken);
             return;
@@ -121,7 +113,7 @@ public class TelegramBotHostedService : BackgroundService
 
         var verificationCode = parts[1];
 
-        using var scope = _scopeFactory.CreateScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
         var userService = scope.ServiceProvider.GetRequiredService<IUserService>();
 
         try
@@ -137,7 +129,7 @@ public class TelegramBotHostedService : BackgroundService
 
             if (codeEntity == null)
             {
-                await botClient.SendMessage(chatId,
+                await bot.SendMessage(chatId,
                     "Код подтверждения не найден или истек. Получите новый код в веб-интерфейсе.",
                     cancellationToken: cancellationToken);
                 return;
@@ -149,19 +141,67 @@ public class TelegramBotHostedService : BackgroundService
                 telegramUserId,
                 cancellationToken);
 
-            await botClient.SendMessage(chatId,
+            await bot.SendMessage(chatId,
                 "✅ Ваш аккаунт успешно подтвержден! Теперь вы можете использовать все функции бота.",
                 cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to confirm user via Telegram");
+            logger.LogWarning(ex, "Failed to confirm user via Telegram");
             var errorMessage = ex.Message.Contains("already linked")
                 ? "Этот Telegram аккаунт уже привязан к другому пользователю."
                 : "Не удалось подтвердить аккаунт. Проверьте код или получите новый в веб-интерфейсе.";
-            await botClient.SendMessage(chatId, errorMessage, cancellationToken: cancellationToken);
+            await bot.SendMessage(chatId, errorMessage, cancellationToken: cancellationToken);
+        }
+    }
+
+    private async Task HandleSuccessfulPaymentAsync(ITelegramBotClient bot, long telegramUserId, Telegram.Bot.Types.Payments.SuccessfulPayment successfulPayment, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var subscriptionService = scope.ServiceProvider.GetRequiredService<ISubscriptionService>();
+            
+            // Извлекаем planId из payload
+            if (!Guid.TryParse(successfulPayment.InvoicePayload, out var planId))
+            {
+                logger.LogWarning("Invalid plan ID in payment payload: {Payload}", successfulPayment.InvoicePayload);
+                await bot.SendMessage(telegramUserId,
+                    "❌ Ошибка обработки платежа: неверный идентификатор плана.",
+                    cancellationToken: cancellationToken);
+                return;
+            }
+
+            try
+            {
+                await subscriptionService.ProcessTelegramPaymentAsync(
+                    telegramUserId,
+                    successfulPayment.TelegramPaymentChargeId,
+                    (decimal)successfulPayment.TotalAmount / 100, // Telegram возвращает сумму в копейках
+                    successfulPayment.Currency,
+                    planId,
+                    cancellationToken);
+
+                await bot.SendMessage(telegramUserId,
+                    "✅ Платеж успешно обработан! Ваша подписка активирована.",
+                    cancellationToken: cancellationToken);
+                logger.LogInformation("Payment processed successfully for user {TelegramUserId}, plan {PlanId}",
+                    telegramUserId, planId);
+            }
+            catch (Exception exc)
+            {
+                logger.LogCritical(exc, "Failed to process payment id={id}", successfulPayment.TelegramPaymentChargeId);
+                await bot.SendMessage(telegramUserId,
+                    "❌ Ошибка обработки платежа. Пожалуйста, обратитесь в поддержку.",
+                    cancellationToken: cancellationToken);
+            }
+        }
+        catch (Exception exc)
+        {
+            logger.LogCritical(exc, "Error processing successful payment for user {TelegramUserId}", telegramUserId);
+            await bot.SendMessage(telegramUserId,
+                "❌ Произошла ошибка при обработке платежа. Пожалуйста, обратитесь в поддержку.",
+                cancellationToken: cancellationToken);
         }
     }
 }
-
-
