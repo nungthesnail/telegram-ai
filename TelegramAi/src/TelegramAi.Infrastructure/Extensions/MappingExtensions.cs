@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Text.Json;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Domain.Entities;
@@ -15,7 +14,7 @@ public static class MappingExtensions
 
     public static UserSubscriptionDto ToDto(this UserSubscription subscription) =>
         new(subscription.Id, subscription.UserId, subscription.PlanId, subscription.LastRenewedAtUtc, 
-            subscription.ExpiresAtUtc, subscription.Plan.ToDto());
+            subscription.ExpiresAtUtc, subscription.Balance, subscription.Plan.ToDto());
 
     public static ChannelDto ToDto(this Channel channel) =>
         new(
@@ -55,6 +54,9 @@ public static class MappingExtensions
 
     public static PaymentDto ToDto(this Payment payment) =>
         new(payment.Id, payment.Amount, payment.Currency, payment.Status, payment.Provider, payment.CreatedAtUtc, payment.PaidAtUtc, payment.ExternalId);
+
+    public static LlmModelInfoDto ToDto(this LlmModelInfo model)
+        => new(model.Id, model.Name, model.ApiId, model.RequestTokenCost, model.ResponseTokenCost);
 }
 
 

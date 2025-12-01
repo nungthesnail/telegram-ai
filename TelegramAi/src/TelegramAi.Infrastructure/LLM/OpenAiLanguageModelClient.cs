@@ -26,7 +26,7 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
         _chatClient = client.GetChatClient(_options.Model);
     }
 
-    public async Task<string> GenerateResponseAsync(Guid dialogId,
+    public async Task<AiResponseDto> GenerateResponseAsync(Guid dialogId,
         IReadOnlyCollection<DialogMessageDto> history,
         string userMessage,
         CancellationToken cancellationToken)
@@ -48,9 +48,11 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
         var response = await _chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
         var completion = response.Value;
         var content = completion.Content.FirstOrDefault()?.Text ?? "Извините, я не смог сгенерировать ответ.";
-
-        return content;
+        
+        return new AiResponseDto(content,
+            new TokenUsageDto(
+                completion.Usage.InputTokenCount,
+                completion.Usage.OutputTokenCount,
+                completion.Usage.TotalTokenCount));
     }
 }
-
-

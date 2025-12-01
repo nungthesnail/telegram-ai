@@ -10,21 +10,19 @@ using TelegramAi.Infrastructure.Persistence;
 
 namespace TelegramAi.Infrastructure.Services;
 
-public class DialogService : IDialogService
+public class DialogService(
+    AppDbContext dbContext,
+    ILanguageModelClient languageModelClient,
+    ILlmModelService llmModelService,
+    ISubscriptionService subscriptionService)
+    : IDialogService
 {
-    private readonly AppDbContext _dbContext;
-    private readonly ILanguageModelClient _languageModelClient;
     private readonly AssistantResponseParser _responseParser = new();
 
-    public DialogService(AppDbContext dbContext, ILanguageModelClient languageModelClient)
+    public async Task<DialogDto> StartAsync(Guid userId, CreateDialogRequest request,
+        CancellationToken cancellationToken)
     {
-        _dbContext = dbContext;
-        _languageModelClient = languageModelClient;
-    }
-
-    public async Task<DialogDto> StartAsync(Guid userId, CreateDialogRequest request, CancellationToken cancellationToken)
-    {
-        var channel = await _dbContext.Channels.FirstOrDefaultAsync(
+        var channel = await dbContext.Channels.FirstOrDefaultAsync(
             x => x.Id == request.ChannelId && x.OwnerId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Channel not found");
 
@@ -37,19 +35,19 @@ public class DialogService : IDialogService
                 : request.Title
         };
 
-        _dbContext.Dialogs.Add(dialog);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.Dialogs.Add(dialog);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         if (!string.IsNullOrWhiteSpace(request.SystemPrompt))
         {
-            _dbContext.DialogMessages.Add(new DialogMessage
+            dbContext.DialogMessages.Add(new DialogMessage
             {
                 DialogId = dialog.Id,
                 Sender = DialogMessageSender.System,
                 Content = request.SystemPrompt
             });
 
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var loaded = await LoadDialogAsync(dialog.Id, userId, cancellationToken);
@@ -59,10 +57,13 @@ public class DialogService : IDialogService
     public async Task<SendMessageResultDto> SendMessageAsync(Guid userId, AssistantMessageRequest request,
         CancellationToken cancellationToken)
     {
-        var dialog = await _dbContext.Dialogs
+        var dialog = await dbContext.Dialogs
             .Include(x => x.Messages)
             .FirstOrDefaultAsync(x => x.Id == request.DialogId && x.UserId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Dialog not found");
+        
+        var model = await llmModelService.GetModelInfoAsync(request.ModelId, cancellationToken)
+            ?? throw new InvalidOperationException("Model not found");
 
         var userMessage = new DialogMessage
         {
@@ -71,19 +72,19 @@ public class DialogService : IDialogService
             Content = request.Message
         };
 
-        _dbContext.DialogMessages.Add(userMessage);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.DialogMessages.Add(userMessage);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         // reload messages to include the latest entry
-        var messages = await _dbContext.DialogMessages
+        var messages = await dbContext.DialogMessages
             .Where(x => x.DialogId == dialog.Id)
             .OrderBy(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
         var history = messages.Select(m => m.ToDto()).ToList();
-        var assistantResponse = await _languageModelClient.GenerateResponseAsync(dialog.Id, history, request.Message, cancellationToken);
-        
-        var parsingResult = _responseParser.Parse(assistantResponse);
+        var response = await languageModelClient.GenerateResponseAsync(dialog.Id, history, request.Message,
+            cancellationToken);
+        var parsingResult = _responseParser.Parse(response.Text);
         
         var assistantMessage = new DialogMessage
         {
@@ -92,21 +93,25 @@ public class DialogService : IDialogService
             Content = parsingResult.Text,
             PostsJson = parsingResult.JsonPosts.Count > 0 ? JsonSerializer.Serialize(parsingResult.JsonPosts) : null
         };
-
-        _dbContext.DialogMessages.Add(assistantMessage);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        
+        dbContext.DialogMessages.Add(assistantMessage);
+        await subscriptionService.UpdateBalanceAsync(userId, model, response.TokenUsage, cancellationToken);
+        
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return new SendMessageResultDto(
             userMessage.ToDto(),
             assistantMessage.ToDto() with
             {
-                SuggestedPosts = parsingResult.JsonPosts.Select(x => x with { Status = ChannelPostStatus.Suggested }).ToList()
+                SuggestedPosts = parsingResult.JsonPosts.Select(x => x with { Status = ChannelPostStatus.Suggested })
+                    .ToList()
             });
     }
 
-    public async Task<IReadOnlyCollection<DialogDto>> ListByChannelAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyCollection<DialogDto>> ListByChannelAsync(Guid userId, Guid channelId,
+        CancellationToken cancellationToken)
     {
-        var dialogs = await _dbContext.Dialogs
+        var dialogs = await dbContext.Dialogs
             .AsNoTracking()
             .Where(x => x.UserId == userId && x.ChannelId == channelId)
             .Include(x => x.Messages)
@@ -118,7 +123,7 @@ public class DialogService : IDialogService
 
     public async Task<IReadOnlyCollection<DialogDto>> ListAllAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var dialogs = await _dbContext.Dialogs
+        var dialogs = await dbContext.Dialogs
             .AsNoTracking()
             .Where(x => x.UserId == userId)
             .Include(x => x.Messages)
@@ -135,17 +140,17 @@ public class DialogService : IDialogService
 
     public async Task DeleteAsync(Guid userId, Guid dialogId, CancellationToken cancellationToken)
     {
-        var dialog = await _dbContext.Dialogs
+        var dialog = await dbContext.Dialogs
             .FirstOrDefaultAsync(x => x.Id == dialogId && x.UserId == userId, cancellationToken)
             ?? throw new InvalidOperationException("Dialog not found");
 
-        _dbContext.Dialogs.Remove(dialog);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.Dialogs.Remove(dialog);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<DialogDto?> LoadDialogAsync(Guid dialogId, Guid userId, CancellationToken cancellationToken)
     {
-        var dialog = await _dbContext.Dialogs
+        var dialog = await dbContext.Dialogs
             .AsNoTracking()
             .Include(x => x.Messages)
             .FirstOrDefaultAsync(x => x.Id == dialogId && x.UserId == userId, cancellationToken);

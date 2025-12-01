@@ -6,5 +6,6 @@ public record UserSubscriptionDto(
     Guid PlanId,
     DateTimeOffset LastRenewedAtUtc,
     DateTimeOffset ExpiresAtUtc,
+    decimal Balance,
     SubscriptionPlanDto Plan);
 

@@ -71,19 +71,19 @@ public class UserService : IUserService
         var user = await _dbContext.Users
             .AsNoTracking()
             .Include(x => x.Subscription)
-                .ThenInclude(x => x.Plan)
+                .ThenInclude(x => x!.Plan)
             .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         return user?.ToDto();
     }
 
     public async Task<string> GenerateVerificationCodeAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId, cancellationToken)
-                   ?? throw new InvalidOperationException("User not found");
+        if (!await _dbContext.Users.AnyAsync(x => x.Id == userId, cancellationToken))
+            throw new InvalidOperationException("User not found");
 
         // Удаляем старые неиспользованные коды
         var expiredCodes = await _dbContext.UserVerificationCodes
-            .Where(x => x.UserId == userId && (x.VerifiedAtUtc == null && x.ExpiresAtUtc < DateTimeOffset.UtcNow))
+            .Where(x => x.UserId == userId && x.VerifiedAtUtc == null && x.ExpiresAtUtc < DateTimeOffset.UtcNow)
             .ToListAsync(cancellationToken);
         _dbContext.UserVerificationCodes.RemoveRange(expiredCodes);
 

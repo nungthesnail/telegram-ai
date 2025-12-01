@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDialogService, DialogService>();
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.AddSingleton<ILlmModelService, LlmModelService>();
         services.AddSingleton<IPaymentGateway, StubPaymentGateway>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddLanguageModelProvider();

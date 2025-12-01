@@ -5,7 +5,7 @@ namespace TelegramAi.Infrastructure.LLM;
 
 public class StubLanguageModelClient : ILanguageModelClient
 {
-    public async Task<string> GenerateResponseAsync(Guid dialogId,
+    public async Task<AiResponseDto> GenerateResponseAsync(Guid dialogId,
         IReadOnlyCollection<DialogMessageDto> history,
         string userMessage,
         CancellationToken cancellationToken)
@@ -29,10 +29,9 @@ public class StubLanguageModelClient : ILanguageModelClient
                 null)
         };
 
-        return $"Создаю пост с предоставленным текстом. " +
+        return new AiResponseDto($"Создаю пост с предоставленным текстом. " +
                $"/publish {{ \"Title\": \"Тестовый пост 1\", \"Content\": \"{responseText.Replace("\"", "\\\"")}\"}}" +
-               $"/publish {{ \"Title\": \"Второй тестовый пост\", \"Content\": \"{responseText.Replace("\"", "\\\"")}\"}}";
+               $"/publish {{ \"Title\": \"Второй тестовый пост\", \"Content\": \"{responseText.Replace("\"", "\\\"")}\"}}",
+            new TokenUsageDto(1, 1, 2));
     }
 }
-
-

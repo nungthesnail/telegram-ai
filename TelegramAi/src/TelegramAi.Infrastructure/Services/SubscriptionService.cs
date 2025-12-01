@@ -1,18 +1,20 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Application.Requests;
 using TelegramAi.Domain.Entities;
 using TelegramAi.Domain.Enums;
 using TelegramAi.Infrastructure.Extensions;
+using TelegramAi.Infrastructure.Options;
 using TelegramAi.Infrastructure.Persistence;
 
 namespace TelegramAi.Infrastructure.Services;
 
 public class SubscriptionService(
     AppDbContext dbContext,
-    IPaymentGateway paymentGateway,
-    ITelegramPublisher telegramPublisher)
+    ITelegramPublisher telegramPublisher,
+    IOptionsMonitor<LlmOptions> llmOptions)
     : ISubscriptionService
 {
     public async Task<IEnumerable<SubscriptionPlanDto>> GetPlansAsync(CancellationToken cancellationToken)
@@ -33,70 +35,6 @@ public class SubscriptionService(
             .FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
         
         return subscription?.ToDto();
-    }
-
-    public async Task<PaymentDto> StartSubscriptionAsync(Guid userId, StartSubscriptionRequest request, CancellationToken cancellationToken)
-    {
-        var user = await dbContext.Users
-            .Include(x => x.Subscription)
-            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken)
-                   ?? throw new InvalidOperationException("User not found");
-
-        // Получаем план подписки
-        var planId = request.PlanId ?? throw new InvalidOperationException("PlanId is required");
-        var plan = await dbContext.SubscriptionPlans
-            .FirstOrDefaultAsync(x => x.Id == planId, cancellationToken)
-            ?? throw new InvalidOperationException("Subscription plan not found");
-
-        var amount = plan.PriceRub;
-        var currency = "RUB";
-
-        var payment = new Payment
-        {
-            UserId = userId,
-            Amount = amount,
-            Currency = currency,
-            Provider = PaymentProvider.Stub,
-            Status = PaymentStatus.Pending
-        };
-
-        dbContext.Payments.Add(payment);
-        await dbContext.SaveChangesAsync(cancellationToken);
-
-        var (status, externalId) = await paymentGateway.ChargeAsync(userId, amount, currency, cancellationToken);
-
-        payment.Status = status;
-        payment.ExternalId = externalId;
-        payment.PaidAtUtc = status == PaymentStatus.Paid ? DateTimeOffset.UtcNow : null;
-        payment.UpdatedAtUtc = DateTimeOffset.UtcNow;
-
-        if (status == PaymentStatus.Paid)
-        {
-            var now = DateTimeOffset.UtcNow;
-            
-            // Если у пользователя уже есть подписка, обновляем её, иначе создаём новую
-            if (user.Subscription != null)
-            {
-                user.Subscription.PlanId = planId;
-                user.Subscription.LastRenewedAtUtc = now;
-                user.Subscription.ExpiresAtUtc = now.AddDays(plan.PeriodDays);
-                user.Subscription.UpdatedAtUtc = now;
-            }
-            else
-            {
-                user.Subscription = new UserSubscription
-                {
-                    UserId = userId,
-                    PlanId = planId,
-                    LastRenewedAtUtc = now,
-                    ExpiresAtUtc = now.AddDays(plan.PeriodDays)
-                };
-                dbContext.UserSubscriptions.Add(user.Subscription);
-            }
-        }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return payment.ToDto();
     }
 
     public async Task<UserDto> RefreshSubscriptionStateAsync(Guid userId, CancellationToken cancellationToken)
@@ -164,6 +102,7 @@ public class SubscriptionService(
         }
 
         var now = DateTimeOffset.UtcNow;
+        var balance = amount * llmOptions.CurrentValue.TokenBudgetRatio;
 
         // Создаем или обновляем подписку
         if (user.Subscription != null)
@@ -172,6 +111,8 @@ public class SubscriptionService(
             user.Subscription.LastRenewedAtUtc = now;
             user.Subscription.ExpiresAtUtc = now.AddDays(plan.PeriodDays);
             user.Subscription.UpdatedAtUtc = now;
+            user.Subscription.Balance = llmOptions.CurrentValue.BalanceResetsWhenUpdating
+                ? balance : user.Subscription.Balance + balance;
         }
         else
         {
@@ -180,7 +121,8 @@ public class SubscriptionService(
                 UserId = user.Id,
                 PlanId = planId,
                 LastRenewedAtUtc = now,
-                ExpiresAtUtc = now.AddDays(plan.PeriodDays)
+                ExpiresAtUtc = now.AddDays(plan.PeriodDays),
+                Balance = balance
             };
             dbContext.UserSubscriptions.Add(user.Subscription);
         }
@@ -200,6 +142,20 @@ public class SubscriptionService(
         dbContext.Payments.Add(payment);
         await dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public Task UpdateBalanceAsync(Guid userId, LlmModelInfoDto modelInfo, TokenUsageDto tokenUsage,
+        CancellationToken cancellationToken = default)
+    {
+        return dbContext.UserSubscriptions.Where(x => x.UserId == userId).ExecuteUpdateAsync(
+            setter => setter.SetProperty(x => x.Balance, x => x.Balance -
+                (modelInfo.RequestTokenCost * tokenUsage.InputTokenCount
+                + modelInfo.ResponseTokenCost * tokenUsage.OutputTokenCount)),
+            cancellationToken); // Update balance
+    }
+
+    public SubscriptionStatusDto GetSubscriptionStatus(UserSubscriptionDto subscription,
+        CancellationToken cancellationToken = default)
+    {
+        return new SubscriptionStatusDto(subscription.Balance <= 0, DateTimeOffset.Now > subscription.ExpiresAtUtc);
+    }
 }
-
-

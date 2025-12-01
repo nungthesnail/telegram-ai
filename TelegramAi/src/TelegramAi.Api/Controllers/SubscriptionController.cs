@@ -34,13 +34,6 @@ public class SubscriptionController : ControllerBase
         return subscription is null ? NotFound() : Ok(subscription);
     }
 
-    [HttpPost("start")]
-    public async Task<ActionResult<PaymentDto>> Start([FromBody] StartSubscriptionRequest request, CancellationToken cancellationToken)
-    {
-        var payment = await _subscriptionService.StartSubscriptionAsync(_userContext.GetCurrentUserId(), request, cancellationToken);
-        return Ok(payment);
-    }
-
     [HttpPost("request-telegram-invoice")]
     public async Task<ActionResult> RequestTelegramInvoice([FromBody] RequestTelegramInvoiceRequest request, CancellationToken cancellationToken)
     {
@@ -48,5 +41,3 @@ public class SubscriptionController : ControllerBase
         return Ok(new { message = "Invoice sent to Telegram" });
     }
 }
-
-
