@@ -6,6 +6,7 @@ public class UserSubscription : BaseEntity
     public Guid PlanId { get; set; }
     public DateTimeOffset LastRenewedAtUtc { get; set; }
     public DateTimeOffset ExpiresAtUtc { get; set; }
+    public decimal LastReplenishAmount { get; set; }
     public decimal Balance { get; set; }
     
     public User User { get; set; } = null!;

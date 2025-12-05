@@ -18,14 +18,20 @@ public class JwtTokenService : IJwtTokenService
         _options = options.Value;
     }
 
-    public string GenerateToken(Guid userId, string email)
+    public string GenerateToken(Guid userId, string email, DateTimeOffset? subscriptionExpiresAtUtc = null)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Email, email),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        // Добавляем claim с временем истечения подписки
+        if (subscriptionExpiresAtUtc.HasValue)
+        {
+            claims.Add(new Claim("subscription_expires_at", subscriptionExpiresAtUtc.Value.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

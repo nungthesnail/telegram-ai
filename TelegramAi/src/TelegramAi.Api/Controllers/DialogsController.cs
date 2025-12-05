@@ -54,7 +54,7 @@ public class DialogsController : ControllerBase
     {
         var response = await _dialogService.SendMessageAsync(
             _userContext.GetCurrentUserId(),
-            new AssistantMessageRequest(dialogId, request.Message),
+            new AssistantMessageRequest(dialogId, request.ModelId, request.Message),
             cancellationToken);
         
         return Ok(response);

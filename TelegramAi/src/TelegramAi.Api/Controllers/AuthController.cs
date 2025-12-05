@@ -29,7 +29,7 @@ public class AuthController : ControllerBase
         try
         {
             var user = await _userService.RegisterAsync(request.Email, request.DisplayName, request.Password, cancellationToken);
-            var token = _jwtTokenService.GenerateToken(user.Id, user.Email);
+            var token = _jwtTokenService.GenerateToken(user.Id, user.Email, user.Subscription?.ExpiresAtUtc);
 
             return Ok(new AuthResponseDto
             {
@@ -58,7 +58,7 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid email or password");
         }
 
-        var token = _jwtTokenService.GenerateToken(user.Id, user.Email);
+        var token = _jwtTokenService.GenerateToken(user.Id, user.Email, user.Subscription?.ExpiresAtUtc);
 
         return Ok(new AuthResponseDto
         {

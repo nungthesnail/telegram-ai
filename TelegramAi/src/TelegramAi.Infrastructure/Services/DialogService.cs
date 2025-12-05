@@ -38,13 +38,15 @@ public class DialogService(
         dbContext.Dialogs.Add(dialog);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(request.SystemPrompt))
+        // Добавляем системный промпт при создании диалога
+        var systemPrompt = await llmModelService.GetSystemPromptAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(systemPrompt))
         {
             dbContext.DialogMessages.Add(new DialogMessage
             {
                 DialogId = dialog.Id,
                 Sender = DialogMessageSender.System,
-                Content = request.SystemPrompt
+                Content = systemPrompt
             });
 
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -82,16 +84,38 @@ public class DialogService(
             .ToListAsync(cancellationToken);
 
         var history = messages.Select(m => m.ToDto()).ToList();
-        var response = await languageModelClient.GenerateResponseAsync(dialog.Id, history, request.Message,
+        
+        // Получаем системный промпт и описание инструментов
+        var systemPrompt = await llmModelService.GetSystemPromptAsync(cancellationToken);
+        var toolsDescription = await llmModelService.GetToolsDescriptionAsync(cancellationToken);
+        
+        var response = await languageModelClient.GenerateResponseAsync(
+            dialog.Id,
+            model.ApiId,
+            history, 
+            request.Message,
+            systemPrompt,
+            toolsDescription,
             cancellationToken);
-        var parsingResult = _responseParser.Parse(response.Text);
+        
+        // Получаем предложенные посты из базы данных (они были созданы через tool executor)
+        // Берем посты, созданные после начала этого сообщения
+        var suggestedPosts = await dbContext.ChannelPosts
+            .Where(x => x.ChannelId == dialog.ChannelId && 
+                       x.Status == ChannelPostStatus.Suggested &&
+                       x.CreatedAtUtc >= userMessage.CreatedAtUtc)
+            .Include(x => x.Channel)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Take(10) // Берем последние 10 предложенных постов
+            .Select(x => x.ToDto())
+            .ToListAsync(cancellationToken);
         
         var assistantMessage = new DialogMessage
         {
             DialogId = dialog.Id,
             Sender = DialogMessageSender.Assistant,
-            Content = parsingResult.Text,
-            PostsJson = parsingResult.JsonPosts.Count > 0 ? JsonSerializer.Serialize(parsingResult.JsonPosts) : null
+            Content = response.Text,
+            PostsJson = suggestedPosts.Count > 0 ? JsonSerializer.Serialize(suggestedPosts) : null
         };
         
         dbContext.DialogMessages.Add(assistantMessage);
@@ -103,8 +127,7 @@ public class DialogService(
             userMessage.ToDto(),
             assistantMessage.ToDto() with
             {
-                SuggestedPosts = parsingResult.JsonPosts.Select(x => x with { Status = ChannelPostStatus.Suggested })
-                    .ToList()
+                SuggestedPosts = suggestedPosts
             });
     }
 

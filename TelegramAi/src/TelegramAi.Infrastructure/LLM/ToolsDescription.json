@@ -1,0 +1,39 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "publish_post",
+      "description": "Публикует пост в Telegram-канал. Может принимать массив постов для публикации нескольких постов одновременно.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "posts": {
+            "type": "array",
+            "description": "Массив постов для публикации",
+            "items": {
+              "type": "object",
+              "properties": {
+                "Title": {
+                  "type": "string",
+                  "description": "Заголовок поста в этом приложении"
+                },
+                "Content": {
+                  "type": "string",
+                  "description": "Текст поста в HTML верстке"
+                },
+                "ScheduledAtUtc": {
+                  "type": "string",
+                  "description": "Время когда запланировать пост в формате yyyy-MM-ddTHH:mm:ss [+|-]hh:mm или null для немедленной публикации",
+                  "nullable": true
+                }
+              },
+              "required": ["Content"]
+            }
+          }
+        },
+        "required": ["posts"]
+      }
+    }
+  }
+]
+

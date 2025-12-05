@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace TelegramAi.Domain.Entities;
+﻿namespace TelegramAi.Domain.Entities;
 
 public class LlmModelInfo : BaseEntity<long>
 {

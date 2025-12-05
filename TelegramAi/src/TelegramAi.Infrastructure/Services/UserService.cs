@@ -50,7 +50,10 @@ public class UserService : IUserService
     public async Task<UserDto?> AuthenticateAsync(string email, string password, CancellationToken cancellationToken)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
-        var user = await _dbContext.Users.FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
+        var user = await _dbContext.Users
+            .Include(x => x.Subscription)
+                .ThenInclude(x => x!.Plan)
+            .FirstOrDefaultAsync(x => x.Email == normalizedEmail, cancellationToken);
         
         if (user == null)
         {

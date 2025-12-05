@@ -7,5 +7,5 @@ public record UserSubscriptionDto(
     DateTimeOffset LastRenewedAtUtc,
     DateTimeOffset ExpiresAtUtc,
     decimal Balance,
+    decimal LastReplenishAmount,
     SubscriptionPlanDto Plan);
-

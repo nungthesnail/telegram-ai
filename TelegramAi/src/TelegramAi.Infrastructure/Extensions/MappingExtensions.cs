@@ -14,7 +14,7 @@ public static class MappingExtensions
 
     public static UserSubscriptionDto ToDto(this UserSubscription subscription) =>
         new(subscription.Id, subscription.UserId, subscription.PlanId, subscription.LastRenewedAtUtc, 
-            subscription.ExpiresAtUtc, subscription.Balance, subscription.Plan.ToDto());
+            subscription.ExpiresAtUtc, subscription.Balance, subscription.LastReplenishAmount, subscription.Plan.ToDto());
 
     public static ChannelDto ToDto(this Channel channel) =>
         new(

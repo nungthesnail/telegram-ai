@@ -6,9 +6,12 @@ namespace TelegramAi.Infrastructure.LLM;
 public class StubLanguageModelClient : ILanguageModelClient
 {
     public async Task<AiResponseDto> GenerateResponseAsync(Guid dialogId,
+        string modelId,
         IReadOnlyCollection<DialogMessageDto> history,
         string userMessage,
-        CancellationToken cancellationToken)
+        string? systemPrompt = null,
+        string? toolsDescription = null,
+        CancellationToken cancellationToken = default)
     {
         await Task.Delay(2000, cancellationToken);
         

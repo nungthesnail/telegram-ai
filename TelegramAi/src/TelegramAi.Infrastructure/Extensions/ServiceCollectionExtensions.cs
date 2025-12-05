@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDialogService, DialogService>();
         services.AddScoped<IPostService, PostService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
+        services.AddScoped<IToolExecutor, ToolExecutor>();
         services.AddSingleton<ILlmModelService, LlmModelService>();
         services.AddSingleton<IPaymentGateway, StubPaymentGateway>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
@@ -53,10 +54,10 @@ public static class ServiceCollectionExtensions
             var options = sp.GetRequiredService<IOptions<LlmOptions>>();
             return options.Value.UseStub
                 ? new StubLanguageModelClient()
-                : sp.GetRequiredService<OpenAiLanguageModelClient>();
+                : new OpenAiLanguageModelClient(
+                    sp.GetRequiredService<IOptions<OpenAiOptions>>(),
+                    sp.GetRequiredService<IToolExecutor>());
         });
-
-        services.AddSingleton<OpenAiLanguageModelClient>();
 
         return services;
     }

@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
-using TelegramAi.Application.Requests;
 using TelegramAi.Domain.Entities;
 using TelegramAi.Domain.Enums;
 using TelegramAi.Infrastructure.Extensions;
@@ -113,6 +112,7 @@ public class SubscriptionService(
             user.Subscription.UpdatedAtUtc = now;
             user.Subscription.Balance = llmOptions.CurrentValue.BalanceResetsWhenUpdating
                 ? balance : user.Subscription.Balance + balance;
+            user.Subscription.LastReplenishAmount = user.Subscription.Balance;
         }
         else
         {
@@ -122,7 +122,8 @@ public class SubscriptionService(
                 PlanId = planId,
                 LastRenewedAtUtc = now,
                 ExpiresAtUtc = now.AddDays(plan.PeriodDays),
-                Balance = balance
+                Balance = balance,
+                LastReplenishAmount = balance
             };
             dbContext.UserSubscriptions.Add(user.Subscription);
         }
@@ -148,8 +149,8 @@ public class SubscriptionService(
     {
         return dbContext.UserSubscriptions.Where(x => x.UserId == userId).ExecuteUpdateAsync(
             setter => setter.SetProperty(x => x.Balance, x => x.Balance -
-                (modelInfo.RequestTokenCost * tokenUsage.InputTokenCount
-                + modelInfo.ResponseTokenCost * tokenUsage.OutputTokenCount)),
+                (modelInfo.RequestTokenCost / 1000000 * tokenUsage.InputTokenCount
+                + modelInfo.ResponseTokenCost / 1000000 * tokenUsage.OutputTokenCount)),
             cancellationToken); // Update balance
     }
 
