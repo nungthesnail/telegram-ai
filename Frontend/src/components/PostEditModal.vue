@@ -81,7 +81,3 @@ const handleSave = async () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Все стили перенесены в style.css */
-</style>

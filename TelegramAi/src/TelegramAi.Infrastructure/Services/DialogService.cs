@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using TelegramAi.Application.DTOs;
+using TelegramAi.Application.DTOs.AiResponseEntities;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Application.Requests;
 using TelegramAi.Domain.Entities;
@@ -17,8 +18,6 @@ public class DialogService(
     ISubscriptionService subscriptionService)
     : IDialogService
 {
-    private readonly AssistantResponseParser _responseParser = new();
-
     public async Task<DialogDto> StartAsync(Guid userId, CreateDialogRequest request,
         CancellationToken cancellationToken)
     {
@@ -40,13 +39,18 @@ public class DialogService(
 
         // Добавляем системный промпт при создании диалога
         var systemPrompt = await llmModelService.GetSystemPromptAsync(cancellationToken);
+        var systemPromptEntity = new List<MessageEntity>
+        {
+            new TextMessageEntity(systemPrompt)
+        };
+        
         if (!string.IsNullOrWhiteSpace(systemPrompt))
         {
             dbContext.DialogMessages.Add(new DialogMessage
             {
                 DialogId = dialog.Id,
                 Sender = DialogMessageSender.System,
-                Content = systemPrompt
+                ContentEntitiesJson = JsonSerializer.Serialize(systemPromptEntity)
             });
 
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -66,12 +70,16 @@ public class DialogService(
         
         var model = await llmModelService.GetModelInfoAsync(request.ModelId, cancellationToken)
             ?? throw new InvalidOperationException("Model not found");
-
+        
+        var messageEntity = new List<MessageEntity>
+        {
+            new TextMessageEntity(request.Message)
+        };
         var userMessage = new DialogMessage
         {
             DialogId = dialog.Id,
             Sender = DialogMessageSender.User,
-            Content = request.Message
+            ContentEntitiesJson = JsonSerializer.Serialize(messageEntity)
         };
 
         dbContext.DialogMessages.Add(userMessage);
@@ -89,33 +97,14 @@ public class DialogService(
         var systemPrompt = await llmModelService.GetSystemPromptAsync(cancellationToken);
         var toolsDescription = await llmModelService.GetToolsDescriptionAsync(cancellationToken);
         
-        var response = await languageModelClient.GenerateResponseAsync(
-            dialog.Id,
-            model.ApiId,
-            history, 
-            request.Message,
-            systemPrompt,
-            toolsDescription,
-            cancellationToken);
-        
-        // Получаем предложенные посты из базы данных (они были созданы через tool executor)
-        // Берем посты, созданные после начала этого сообщения
-        var suggestedPosts = await dbContext.ChannelPosts
-            .Where(x => x.ChannelId == dialog.ChannelId && 
-                       x.Status == ChannelPostStatus.Suggested &&
-                       x.CreatedAtUtc >= userMessage.CreatedAtUtc)
-            .Include(x => x.Channel)
-            .OrderByDescending(x => x.CreatedAtUtc)
-            .Take(10) // Берем последние 10 предложенных постов
-            .Select(x => x.ToDto())
-            .ToListAsync(cancellationToken);
+        var response = await languageModelClient.GenerateResponseAsync(dialog.Id, model.ApiId, history, request.Message,
+            systemPrompt, toolsDescription, cancellationToken);
         
         var assistantMessage = new DialogMessage
         {
             DialogId = dialog.Id,
             Sender = DialogMessageSender.Assistant,
-            Content = response.Text,
-            PostsJson = suggestedPosts.Count > 0 ? JsonSerializer.Serialize(suggestedPosts) : null
+            ContentEntitiesJson = response.GetEntitiesJson()
         };
         
         dbContext.DialogMessages.Add(assistantMessage);
@@ -125,10 +114,7 @@ public class DialogService(
 
         return new SendMessageResultDto(
             userMessage.ToDto(),
-            assistantMessage.ToDto() with
-            {
-                SuggestedPosts = suggestedPosts
-            });
+            assistantMessage.ToDto());
     }
 
     public async Task<IReadOnlyCollection<DialogDto>> ListByChannelAsync(Guid userId, Guid channelId,

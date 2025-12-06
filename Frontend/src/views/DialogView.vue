@@ -47,7 +47,6 @@ const selectedModelId = ref(null)
 
 const loadDialog = async () => {
   dialog.value = await authStore.apiFetch(`/api/dialogs/${route.params.dialogId}`)
-  console.log(dialog.value)
 }
 
 const sendMessage = async () => {
@@ -55,7 +54,12 @@ const sendMessage = async () => {
   
   try {
     isLoading.value = true
-    messages.value.push({id: '', sender: 1, content: newMessage.value, createdAtUtc: Date.now() })
+    messages.value.push({
+      id: '',
+      sender: 1,
+      entities: [{'$type': 'text', text: newMessage.value}],
+      createdAtUtc: Date.now()
+    })
     const msgText = newMessage.value
     newMessage.value = ''
 

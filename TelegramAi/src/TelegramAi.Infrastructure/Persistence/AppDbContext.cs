@@ -85,7 +85,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<DialogMessage>(entity =>
         {
-            entity.Property(x => x.Content).IsRequired().HasMaxLength(4000);
+            entity.Property(x => x.ContentEntitiesJson).IsRequired().HasMaxLength(4000);
             entity.HasOne(x => x.Dialog)
                 .WithMany(x => x.Messages)
                 .HasForeignKey(x => x.DialogId)

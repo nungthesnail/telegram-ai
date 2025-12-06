@@ -1,12 +1,16 @@
-﻿namespace TelegramAi.Application.DTOs;
+﻿using System.Text.Json;
+using TelegramAi.Application.DTOs.AiResponseEntities;
+
+namespace TelegramAi.Application.DTOs;
 
 public record AiResponseDto(
-    string Text, 
-    TokenUsageDto TokenUsage,
-    IReadOnlyCollection<ToolCallDto>? ToolCalls = null);
+    IEnumerable<MessageEntity> ResponseEntities,
+    TokenUsageDto TokenUsage)
+{
+    public string GetEntitiesJson()
+    {
+        return JsonSerializer.Serialize(ResponseEntities);
+    }
+}
 
-public record TokenUsageDto(int InputTokenCount, int OutputTokenCount, int TotalTokenCount);
-
-public record ToolCallDto(
-    string FunctionName,
-    string Arguments);
+public record TokenUsageDto(int InputTokenCount, int OutputTokenCount);

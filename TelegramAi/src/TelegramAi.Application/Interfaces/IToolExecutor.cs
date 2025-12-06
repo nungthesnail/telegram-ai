@@ -16,5 +16,7 @@ public interface IToolExecutor
     /// <param name="cancellationToken">Токен отмены</param>
     /// <returns>Результат выполнения в формате JSON</returns>
     Task<string> ExecuteToolAsync(string functionName, string arguments, Guid dialogId, CancellationToken cancellationToken);
+    event PublishPostsAsyncDelegate? OnPostsSuggested;
 }
 
+public delegate Task PublishPostsAsyncDelegate(IEnumerable<ChannelPostDto> posts, CancellationToken stoppingToken);

@@ -1,3 +1,4 @@
+using TelegramAi.Application.DTOs.AiResponseEntities;
 using TelegramAi.Domain.Enums;
 
 namespace TelegramAi.Application.DTOs;
@@ -5,7 +6,9 @@ namespace TelegramAi.Application.DTOs;
 public record DialogMessageDto(
     Guid Id,
     DialogMessageSender Sender,
-    string Content,
-    DateTimeOffset CreatedAtUtc,
-    List<ChannelPostDto>? SuggestedPosts = null);
-    
+    IEnumerable<MessageEntity> Entities,
+    DateTimeOffset CreatedAtUtc)
+{
+    public string AsText => string.Join(' ',
+        Entities.Where(x => x is TextMessageEntity).Select(x => ((TextMessageEntity)x).Text));
+}

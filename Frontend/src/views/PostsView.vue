@@ -43,7 +43,7 @@
     }
     catch (err) {
       alert('Не удалось загрузить посты')
-      console.log('Failed to load posts:', err)
+      console.error('Failed to load posts:', err)
     }
   }
 
@@ -156,12 +156,12 @@
                   ⋮
                 </button>
                 <div v-if="openMenuId === post.id" class="menu-dropdown" @click.stop>
-                  <button @click="showDeletePostConfirm(post.id)" class="menu-item delete">Отменить</button>
+                  <button @click="confirmPost(post.id)" class="menu-item">Опубликовать</button>
+                  <button @click="showDeletePostConfirm(post.id)" class="menu-item delete">Удалить</button>
                 </div>
               </div>
             </div>
-            <button @click="openEditPostPopup(post.id)" class="btn btn-secondary">Редактировать</button>
-            <button @click="confirmPost(post.id)" class="btn btn-primary">Опубликовать</button>
+            <button @click="openEditPostPopup(post.id)" class="btn btn-primary">Редактировать</button>
           </div>
         </div>
       </div>
@@ -201,6 +201,10 @@
 </template>
 
 <style scoped>
-/* Все стили перенесены в style.css */
+
+.btn {
+  margin: 0.1rem;
+}
+
 </style>
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TelegramAi.Application.DTOs;
+using TelegramAi.Application.DTOs.AiResponseEntities;
 using TelegramAi.Domain.Entities;
 
 namespace TelegramAi.Infrastructure.Extensions;
@@ -48,9 +49,9 @@ public static class MappingExtensions
         new(
             message.Id,
             message.Sender,
-            message.Content,
-            message.CreatedAtUtc,
-            message.PostsJson is not null ? JsonSerializer.Deserialize<List<ChannelPostDto>>(message.PostsJson) : null);
+            JsonSerializer.Deserialize<List<MessageEntity>>(message.ContentEntitiesJson)
+                ?? [new ErrorMessageEntity("Не удалось прочитать сообщение")],
+            message.CreatedAtUtc);
 
     public static PaymentDto ToDto(this Payment payment) =>
         new(payment.Id, payment.Amount, payment.Currency, payment.Status, payment.Provider, payment.CreatedAtUtc, payment.PaidAtUtc, payment.ExternalId);

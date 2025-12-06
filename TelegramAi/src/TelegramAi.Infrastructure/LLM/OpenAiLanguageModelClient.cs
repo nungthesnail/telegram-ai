@@ -1,9 +1,11 @@
 using System.ClientModel;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using OpenAI;
 using OpenAI.Chat;
 using Microsoft.Extensions.Options;
 using TelegramAi.Application.DTOs;
+using TelegramAi.Application.DTOs.AiResponseEntities;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Domain.Enums;
 using TelegramAi.Infrastructure.Options;
@@ -12,19 +14,26 @@ namespace TelegramAi.Infrastructure.LLM;
 
 public class OpenAiLanguageModelClient : ILanguageModelClient
 {
-    private readonly OpenAiOptions _options;
     private readonly OpenAIClient _openAiClient;
     private readonly IToolExecutor _toolExecutor;
+    
+    private readonly ConcurrentStack<IEnumerable<ChannelPostDto>> _suggestedPosts = new();
 
     public OpenAiLanguageModelClient(IOptions<OpenAiOptions> options, IToolExecutor toolExecutor)
     {
-        _options = options.Value;
         var openApiOptions = new OpenAIClientOptions
         {
             Endpoint = new Uri(options.Value.ApiRoot)
         };
-        _openAiClient = new OpenAIClient(new ApiKeyCredential(_options.ApiKey), openApiOptions);
+        _openAiClient = new OpenAIClient(new ApiKeyCredential(options.Value.ApiKey), openApiOptions);
         _toolExecutor = toolExecutor;
+        _toolExecutor.OnPostsSuggested += RememberSuggestedPosts;
+    }
+
+    private Task RememberSuggestedPosts(IEnumerable<ChannelPostDto> posts, CancellationToken _)
+    {
+        _suggestedPosts.Push(posts);
+        return Task.CompletedTask;
     }
 
     public async Task<AiResponseDto> GenerateResponseAsync(Guid dialogId,
@@ -45,25 +54,118 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
         }
 
         // Добавляем историю сообщений
-        foreach (var item in history)
+        foreach (var msg in history)
         {
-            // Пропускаем системные сообщения из истории, так как они уже добавлены
-            if (item.Sender == DialogMessageSender.System)
-                continue;
-                
-            messages.Add(item.Sender switch
+            messages.Add(msg.Sender switch
             {
-                DialogMessageSender.User => ChatMessage.CreateUserMessage(item.Content),
-                DialogMessageSender.Assistant => ChatMessage.CreateAssistantMessage(item.Content),
-                _ => ChatMessage.CreateSystemMessage(item.Content)
+                DialogMessageSender.User => ChatMessage.CreateUserMessage(msg.AsText),
+                DialogMessageSender.Assistant => ChatMessage.CreateAssistantMessage(msg.AsText),
+                DialogMessageSender.System => ChatMessage.CreateSystemMessage(msg.AsText),
+                _ => throw new InvalidOperationException($"Unknown message sender: {msg.Sender}")
             });
         }
 
         messages.Add(ChatMessage.CreateUserMessage(userMessage));
 
-        ChatCompletionOptions? options = null;
+        ChatCompletionOptions options = new();
         
         // Добавляем функции, если есть описание инструментов
+        CreateChatCompletionOptions(toolsDescription, options);
+
+        // Циклическая обработка tool calls
+        var totalInputTokens = 0;
+        var totalOutputTokens = 0;
+        var messageEntities = new List<MessageEntity>();
+        const int maxIterations = 10; // Защита от бесконечного цикла
+        var iteration = 0;
+
+        while (iteration < maxIterations)
+        {
+            var response = options != null
+                ? await chatClient.CompleteChatAsync(messages, options, cancellationToken)
+                : await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
+            var completion = response.Value;
+            
+            // Суммируем использование токенов
+            totalInputTokens += completion.Usage.InputTokenCount;
+            totalOutputTokens += completion.Usage.OutputTokenCount;
+
+            // Проверяем наличие tool calls
+            if (completion.FinishReason == ChatFinishReason.ToolCalls)
+            {
+                await HandleToolCallsAsync(dialogId, cancellationToken, completion, messages);
+                CheckSuggestedPosts(messageEntities);
+            }
+            else
+            {
+                // Получен финальный ответ без tool calls
+                messageEntities.Add(new TextMessageEntity(completion.Content.FirstOrDefault()?.Text ?? ""));
+                break;
+            }
+            iteration++;
+        }
+
+        if (iteration >= maxIterations)
+        {
+            messageEntities.Add(new TextMessageEntity(
+                "Достигнуто максимальное количество итераций обработки инструментов."));
+        }
+        
+        return new AiResponseDto(
+            messageEntities,
+            new TokenUsageDto(totalInputTokens, totalOutputTokens));
+    }
+
+    private async Task HandleToolCallsAsync(Guid dialogId, CancellationToken cancellationToken, ChatCompletion completion,
+        List<ChatMessage> messages)
+    {
+        // Добавляем сообщение ассистента с tool calls в историю
+        var assistantMessage = ChatMessage.CreateAssistantMessage(completion);
+        messages.Add(assistantMessage);
+
+        // Выполняем все tool calls
+        var toolResults = new List<ChatMessage>();
+        foreach (var toolCall in completion.ToolCalls)
+        {
+            var toolCallType = toolCall.GetType();
+            var functionNameProp = toolCallType.GetProperty("FunctionName");
+            var functionArgumentsProp = toolCallType.GetProperty("FunctionArguments");
+            var idProp = toolCallType.GetProperty("Id");
+                    
+            if (functionNameProp != null && idProp != null)
+            {
+                var functionName = functionNameProp.GetValue(toolCall)?.ToString();
+                var functionArguments = functionArgumentsProp?.GetValue(toolCall)?.ToString() ?? "{}";
+                var toolCallId = idProp.GetValue(toolCall)?.ToString() ?? "";
+
+                if (!string.IsNullOrEmpty(functionName))
+                {
+                    var toolResult = await _toolExecutor.ExecuteToolAsync(
+                        functionName, 
+                        functionArguments, 
+                        dialogId, 
+                        cancellationToken);
+
+                    var toolResultMessage = ChatMessage.CreateToolMessage(toolCallId, toolResult);
+                    toolResults.Add(toolResultMessage);
+                }
+            }
+        }
+
+        messages.AddRange(toolResults);
+    }
+    
+    private void CheckSuggestedPosts(List<MessageEntity> messageEntities)
+    {
+        if (_suggestedPosts.IsEmpty)
+            return;
+        messageEntities.Add(new SuggestedPostsMessageEntity(_suggestedPosts.SelectMany(x => x).ToList()));
+        _suggestedPosts.Clear();
+    }
+
+    private static void CreateChatCompletionOptions(
+        string? toolsDescription, ChatCompletionOptions options)
+    {
         if (!string.IsNullOrWhiteSpace(toolsDescription))
         {
             try
@@ -101,7 +203,6 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
                     
                     if (tools.Count > 0)
                     {
-                        options = new ChatCompletionOptions();
                         foreach (var tool in tools)
                         {
                             options.Tools.Add(tool);
@@ -111,95 +212,8 @@ public class OpenAiLanguageModelClient : ILanguageModelClient
             }
             catch (JsonException)
             {
-                // Если не удалось распарсить JSON, продолжаем без функций
+                // Ignore
             }
         }
-
-        // Циклическая обработка tool calls
-        var totalInputTokens = 0;
-        var totalOutputTokens = 0;
-        var totalTokens = 0;
-        var finalContent = "";
-        var allToolCalls = new List<ToolCallDto>();
-        const int maxIterations = 10; // Защита от бесконечного цикла
-        var iteration = 0;
-
-        while (iteration < maxIterations)
-        {
-            var response = options != null
-                ? await chatClient.CompleteChatAsync(messages, options, cancellationToken)
-                : await chatClient.CompleteChatAsync(messages, cancellationToken: cancellationToken);
-            
-            var completion = response.Value;
-            
-            // Суммируем использование токенов
-            totalInputTokens += completion.Usage.InputTokenCount;
-            totalOutputTokens += completion.Usage.OutputTokenCount;
-            totalTokens += completion.Usage.TotalTokenCount;
-
-            // Проверяем наличие tool calls
-            if (completion.ToolCalls != null && completion.ToolCalls.Count > 0)
-            {
-                // Добавляем сообщение ассистента с tool calls в историю
-                var assistantMessage = ChatMessage.CreateAssistantMessage(completion);
-                messages.Add(assistantMessage);
-
-                // Выполняем все tool calls
-                var toolResults = new List<ChatMessage>();
-                foreach (var toolCall in completion.ToolCalls)
-                {
-                    var toolCallType = toolCall.GetType();
-                    var functionNameProp = toolCallType.GetProperty("FunctionName");
-                    var functionArgumentsProp = toolCallType.GetProperty("FunctionArguments");
-                    var idProp = toolCallType.GetProperty("Id");
-                    
-                    if (functionNameProp != null && idProp != null)
-                    {
-                        var functionName = functionNameProp.GetValue(toolCall)?.ToString();
-                        var functionArguments = functionArgumentsProp?.GetValue(toolCall)?.ToString() ?? "{}";
-                        var toolCallId = idProp.GetValue(toolCall)?.ToString() ?? "";
-
-                        if (!string.IsNullOrEmpty(functionName))
-                        {
-                            // Сохраняем информацию о tool call
-                            allToolCalls.Add(new ToolCallDto(functionName, functionArguments));
-
-                            // Выполняем инструмент
-                            var toolResult = await _toolExecutor.ExecuteToolAsync(
-                                functionName, 
-                                functionArguments, 
-                                dialogId, 
-                                cancellationToken);
-
-                            // Добавляем результат выполнения инструмента в историю
-                            var toolResultMessage = ChatMessage.CreateToolMessage(toolCallId, toolResult);
-                            toolResults.Add(toolResultMessage);
-                        }
-                    }
-                }
-
-                // Добавляем все результаты tool calls в историю
-                messages.AddRange(toolResults);
-                
-                iteration++;
-                continue; // Продолжаем цикл для получения следующего ответа
-            }
-            else
-            {
-                // Получен финальный ответ без tool calls
-                finalContent = completion.Content.FirstOrDefault()?.Text ?? "Извините, я не смог сгенерировать ответ.";
-                break;
-            }
-        }
-
-        if (iteration >= maxIterations)
-        {
-            finalContent = "Достигнуто максимальное количество итераций обработки инструментов.";
-        }
-        
-        return new AiResponseDto(
-            finalContent,
-            new TokenUsageDto(totalInputTokens, totalOutputTokens, totalTokens),
-            allToolCalls.Count > 0 ? allToolCalls : null);
     }
 }
