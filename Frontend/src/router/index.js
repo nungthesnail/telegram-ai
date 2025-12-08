@@ -56,12 +56,24 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+  const loadUser = async () => {
+    try {
+      const user = await authStore.apiFetch('/api/auth/me')
+      authStore.setUser(user)
+    }
+    catch (error) {
+      console.error('Failed to load user:', error)
+    }
+  }
+
   const authStore = useAuthStore()
   const isAuthenticated = authStore.isAuthenticated
   if (to.meta.requiresAuth && !isAuthenticated.value) {
     next({ name: 'Login', query: { redirect: to.fullPath } })
   } else {
+    if (!authStore.user.value)
+      await loadUser()
     next()
   }
 })

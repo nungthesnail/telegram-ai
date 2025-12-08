@@ -73,6 +73,7 @@ const circleStyle = computed(() => ({
 .progress-ring {
   transform: rotate(-90deg);
   transform-origin: center;
+  display: block;
 }
 
 .progress-ring__circle-bg {

@@ -6,7 +6,7 @@
         </div>
 
         <div class="message-content">
-            <div v-for="entity in entities" class="message-entity">
+            <div v-for="entity in entities">
                 <TextMessageEntity v-if="entity['$type'] === 'text'" :text="entity.text"></TextMessageEntity>
 
                 <SuggestedPostsEntity v-if="entity['$type'] === 'suggestedPosts'" :suggested-posts="entity.posts" :channel-id="channelId">
