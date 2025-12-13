@@ -68,7 +68,7 @@ const balancePercentage = computed(() => {
   if (!subscription.value || subscription.value.lastReplenishAmount <= 0) {
     return 0
   }
-  return (subscription.value.balance / subscription.value.lastReplenishAmount) * 100
+  return 100 - (subscription.value.balance / subscription.value.lastReplenishAmount) * 100
 })
 
 const formatDate = (date) => {

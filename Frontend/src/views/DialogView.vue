@@ -1,9 +1,9 @@
 <template>
   <div class="dialog-page">
     <div class="container">
+      <router-link to="/channels" class="btn-back">← Назад к каналам</router-link>
       <div class="dialog-header">
-        <router-link to="/channels" class="btn-back">← Назад к каналам</router-link>
-        <h1>Диалог с ассистентом</h1>
+        <h1>Диалог с моделью</h1>
       </div>
       <div class="chat-container">
         <div class="messages">
@@ -19,9 +19,12 @@
                 {{ model.name }}
               </option>
             </select>
-            <textarea v-model="newMessage" rows="3" placeholder="Введите сообщение..."></textarea>
-            <button @click="sendMessage" :disabled="!newMessage || selectedModelId === null || isLoading" class="btn btn-primary">
-              Отправить
+            <textarea v-model="newMessage" rows="1" placeholder="Введите сообщение..."></textarea>
+            <button @click="sendMessage" :disabled="!newMessage || selectedModelId === null || isLoading" class="btn btn-primary btn-send">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
             </button>
           </div>
         </div>
