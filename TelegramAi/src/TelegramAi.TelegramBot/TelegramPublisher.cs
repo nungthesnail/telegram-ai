@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.Logging;
 using Telegram.Bot;
+using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.Payments;
+using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Domain.Entities;
 
@@ -8,11 +10,22 @@ namespace TelegramAi.TelegramBot;
 
 public class TelegramPublisher(ILogger<TelegramPublisher> logger, TelegramBotClient bot) : ITelegramPublisher
 {
-    public Task<int> PublishAsync(Guid channelId, string text, CancellationToken cancellationToken)
+    public async Task<int> PublishAsync(long chatId, ChannelPostDto post, CancellationToken cancellationToken)
     {
-        var messageId = DateTimeOffset.UtcNow.GetHashCode();
-        logger.LogInformation("Simulated publishing post to channel {ChannelId}: {Text}", channelId, text);
-        return Task.FromResult(messageId);
+        try
+        {
+            logger.LogDebug("Publishing post id={postId} to chat id={chatId}", post.Id, chatId);
+            return (await bot.SendMessage(
+                chatId: chatId,
+                text: post.Content,
+                parseMode: ParseMode.Html,
+                cancellationToken: cancellationToken)).MessageId;
+        }
+        catch (Exception exc)
+        {
+            logger.LogError(exc, "Error while publishing post id={postId} to chat id={chatId}", post.Id, chatId);
+            throw;
+        }
     }
 
     public Task UpdateProfileAsync(Guid channelId, string title, string description, CancellationToken cancellationToken)

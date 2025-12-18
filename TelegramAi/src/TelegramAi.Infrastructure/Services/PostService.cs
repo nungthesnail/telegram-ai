@@ -9,17 +9,8 @@ using TelegramAi.Infrastructure.Persistence;
 
 namespace TelegramAi.Infrastructure.Services;
 
-public class PostService : IPostService
+public class PostService(AppDbContext dbContext, ITelegramPublisher telegramPublisher) : IPostService
 {
-    private readonly AppDbContext _dbContext;
-    private readonly ITelegramPublisher _telegramPublisher;
-
-    public PostService(AppDbContext dbContext, ITelegramPublisher telegramPublisher)
-    {
-        _dbContext = dbContext;
-        _telegramPublisher = telegramPublisher;
-    }
-
     public async Task CreateAsync(Guid userId, CreatePostRequest request, CancellationToken cancellationToken)
     {
         var channel = await EnsureChannelAsync(userId, request.ChannelId, cancellationToken);
@@ -32,8 +23,8 @@ public class PostService : IPostService
             ScheduledAtUtc = request.ScheduledAtUtc
         };
 
-        _dbContext.ChannelPosts.Add(post);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        dbContext.ChannelPosts.Add(post);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task UpdateAsync(Guid userId, Guid postId, UpdatePostRequest request, CancellationToken cancellationToken)
@@ -44,7 +35,7 @@ public class PostService : IPostService
         post.UpdatedAtUtc = DateTimeOffset.UtcNow;
         post.ScheduledAtUtc = request.ScheduledAtUtc;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task ScheduleAsync(Guid userId, Guid postId, SchedulePostRequest request, CancellationToken cancellationToken)
@@ -54,7 +45,7 @@ public class PostService : IPostService
         post.Status = ChannelPostStatus.Scheduled;
         post.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task PublishAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
@@ -62,19 +53,20 @@ public class PostService : IPostService
         var post = await LoadPostAsync(userId, postId, cancellationToken);
         var channel = await EnsureChannelAsync(userId, post.ChannelId, cancellationToken);
 
-        var messageId = await _telegramPublisher.PublishAsync(channel.Id, post.Content, cancellationToken);
+        var messageId = await telegramPublisher.PublishAsync(channel.TelegramChatId!.Value, post.ToDto(),
+            cancellationToken);
 
         post.Status = ChannelPostStatus.Published;
         post.PublishedAtUtc = DateTimeOffset.UtcNow;
         post.UpdatedAtUtc = DateTimeOffset.UtcNow;
         post.TelegramPostId = messageId;
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
     {
-        await _dbContext.ChannelPosts
+        await dbContext.ChannelPosts
             .Include(x => x.Channel)
             .Where(x => x.Id == postId && x.Channel.OwnerId == userId)
             .ExecuteDeleteAsync(cancellationToken);
@@ -84,7 +76,7 @@ public class PostService : IPostService
     {
         await EnsureChannelAsync(userId, channelId, cancellationToken);
 
-        var posts = await _dbContext.ChannelPosts
+        var posts = await dbContext.ChannelPosts
             .AsNoTracking()
             .Where(x => x.ChannelId == channelId)
             .OrderByDescending(x => x.CreatedAtUtc)
@@ -96,22 +88,21 @@ public class PostService : IPostService
 
     private async Task<Channel> EnsureChannelAsync(Guid userId, Guid channelId, CancellationToken cancellationToken)
     {
-        return await _dbContext.Channels
-                   .FirstOrDefaultAsync(x => x.Id == channelId && x.OwnerId == userId, cancellationToken)
+        return await dbContext.Channels
+                   .FirstOrDefaultAsync(x => x.Id == channelId && x.OwnerId == userId && x.TelegramChatId != null,
+                       cancellationToken)
                ?? throw new InvalidOperationException("Channel not found or access denied");
     }
 
     private async Task<ChannelPost> LoadPostAsync(Guid userId, Guid postId, CancellationToken cancellationToken)
     {
-        var post = await _dbContext.ChannelPosts
+        var post = await dbContext.ChannelPosts
             .Include(x => x.Channel)
             .FirstOrDefaultAsync(x => x.Id == postId, cancellationToken)
             ?? throw new InvalidOperationException("Post not found");
 
         if (post.Channel.OwnerId != userId)
-        {
             throw new InvalidOperationException("Access denied");
-        }
 
         return post;
     }

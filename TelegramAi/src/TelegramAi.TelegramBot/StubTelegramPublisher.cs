@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using TelegramAi.Application.DTOs;
 using TelegramAi.Application.Interfaces;
 using TelegramAi.Domain.Entities;
 
@@ -13,10 +14,10 @@ public class StubTelegramPublisher : ITelegramPublisher
         _logger = logger;
     }
 
-    public Task<int> PublishAsync(Guid channelId, string text, CancellationToken cancellationToken)
+    public Task<int> PublishAsync(long chatId, ChannelPostDto post, CancellationToken cancellationToken)
     {
         var messageId = DateTimeOffset.UtcNow.GetHashCode();
-        _logger.LogInformation("Simulated publishing post to channel {ChannelId}: {Text}", channelId, text);
+        _logger.LogInformation("Simulated publishing post to chat {chatId}: {Text}", chatId, post.Content);
         return Task.FromResult(messageId);
     }
 
